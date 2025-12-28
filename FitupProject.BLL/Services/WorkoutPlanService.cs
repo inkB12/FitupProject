@@ -20,7 +20,11 @@ namespace FitupProject.BLL.Services
 
             if (onboarding == null) throw new ExceptionHandler("OnboardingProfile not found.");
 
-            var focus = ParseCsv(onboarding.FocusAreas);   
+            int weeks = Math.Clamp(onboarding.Weeks, 4, 12);
+            int days = Math.Clamp(onboarding.DaysPerWeek, 3, 6);
+            var split = BuildSplit(days);
+
+            var focus = ParseCsv(onboarding.FocusAreas);
             var limitations = ParseCsv(onboarding.Limitations);
 
             var requiredSafetyTags = new HashSet<string>();
@@ -31,7 +35,6 @@ namespace FitupProject.BLL.Services
 
             var maxLevel = MapMaxWorkoutLevel(onboarding.ExperienceLevel);
 
-            //candidates: filter theo equipment + level
             var workoutRepo = _uow.GetRepository<Workout>();
             var candidates = await workoutRepo.Entities
                 .Where(w => w.Equipment == onboarding.Equipment)
@@ -48,6 +51,8 @@ namespace FitupProject.BLL.Services
             );
 
             // tạo plan
+            var start = DateTimeOffset.UtcNow;
+
             var planRepo = _uow.GetRepository<WorkoutPlan>();
             var plan = new WorkoutPlan
             {
@@ -55,20 +60,17 @@ namespace FitupProject.BLL.Services
                 OnboardingProfileId = onboarding.Id,
                 GoalType = onboarding.GoalType,
                 Progress = 0,
-                StartDate = DateTimeOffset.UtcNow,
-                EndDate = DateTimeOffset.UtcNow.AddDays(28),
-                CreatedAt = DateTimeOffset.UtcNow
+                StartDate = start,
+                EndDate = start.AddDays(weeks * 7), 
+                CreatedAt = start
             };
+
             await planRepo.AddAsync(plan);
             await _uow.SaveAsync();
 
             var scheduleRepo = _uow.GetRepository<WorkoutSchedule>();
             var sessionRepo = _uow.GetRepository<WorkoutSession>();
             var mapRepo = _uow.GetRepository<WorkoutSessionExercise>();
-
-            int weeks = 4;
-            int days = Math.Clamp(onboarding.DaysPerWeek, 3, 6);
-            var split = BuildSplit(days);
 
             int totalSlots = onboarding.MinutesPerSession switch
             {
@@ -78,7 +80,7 @@ namespace FitupProject.BLL.Services
                 _ => 8
             };
 
-            //tránh trùng
+            // tránh trùng
             var usedInPlan = new Dictionary<string, int>();
             var rnd = new Random();
 
@@ -86,7 +88,7 @@ namespace FitupProject.BLL.Services
 
             for (int week = 1; week <= weeks; week++)
             {
-                var (setsDelta, repsHint, deloadFactor) = WeekProgression(week);
+                var (setsDelta, repsHint, deloadFactor) = WeekProgression(week, weeks);
 
                 var schedule = new WorkoutSchedule
                 {
@@ -108,15 +110,16 @@ namespace FitupProject.BLL.Services
                         WorkoutScheduleId = schedule.Id,
                         DayNumber = d,
                         Progress = 0,
-                        Notes = $"Focus: {dayType.ToUpperInvariant()}" + (string.IsNullOrWhiteSpace(repsHint) ? "" : $" • {repsHint}")
+                        Notes = $"Focus: {dayType.ToUpperInvariant()}" +
+                                (string.IsNullOrWhiteSpace(repsHint) ? "" : $" • {repsHint}")
                     };
                     await sessionRepo.AddAsync(session);
                     await _uow.SaveAsync();
 
-                    // ===== chọn bài theo structure =====
+                    //chọn bài theo structure
                     var picks = new List<Workout>();
 
-                    // Slot 1: Warmup/mobility/cardio nhẹ
+                    // Slot 1: Warmup/mobility
                     picks.Add(PickBest(
                         candidates,
                         w => tagIndex[w.Id].Contains("warmup") || tagIndex[w.Id].Contains("mobility"),
@@ -125,14 +128,18 @@ namespace FitupProject.BLL.Services
                             int s = 0;
                             if (tagIndex[w.Id].Contains("warmup")) s += 3;
                             if (tagIndex[w.Id].Contains("mobility")) s += 2;
-                            if (requiredSafetyTags.Count > 0 && requiredSafetyTags.Except(tagIndex[w.Id]).Any()) s -= 3;
+
+                            if (requiredSafetyTags.Count > 0 && requiredSafetyTags.Except(tagIndex[w.Id]).Any())
+                                s -= 3;
+
                             return s;
                         },
                         usedInPlan, week, rnd,
                         excludeIds: picks.Select(x => x.Id).ToHashSet()
                     ));
 
-                    int mainCount = Math.Max(3, totalSlots - 2);
+                    // Main block: 3-5 bài theo target
+                    int mainCount = Math.Max(3, totalSlots - 2); // chừa 1 slot cho finshier
                     mainCount = Math.Min(mainCount, 5);
 
                     for (int i = 0; i < mainCount; i++)
@@ -143,18 +150,25 @@ namespace FitupProject.BLL.Services
                             score: w =>
                             {
                                 int s = 0;
+
+                                // match muscle/plan day type
                                 if (targets.Contains(w.PrimaryMuscle)) s += 6;
                                 if (tagIndex[w.Id].Contains(dayType)) s += 3;
 
                                 // focus bonus
-                                if (focus.Contains("core") && (w.PrimaryMuscle == MuscleGroup.Core || tagIndex[w.Id].Contains("core"))) s += 2;
-                                if (focus.Contains("glutes") && (w.PrimaryMuscle == MuscleGroup.Glutes || tagIndex[w.Id].Contains("glutes"))) s += 2;
+                                if (focus.Contains("core") &&
+                                    (w.PrimaryMuscle == MuscleGroup.Core || tagIndex[w.Id].Contains("core")))
+                                    s += 2;
+
+                                if (focus.Contains("glutes") &&
+                                    (w.PrimaryMuscle == MuscleGroup.Glutes || tagIndex[w.Id].Contains("glutes")))
+                                    s += 2;
 
                                 // limitation penalty
                                 if (requiredSafetyTags.Count > 0 && requiredSafetyTags.Except(tagIndex[w.Id]).Any())
                                     s -= 8;
 
-                                // anti-repeat: nếu dùng tuần trước => trừ
+                                // anti-repeat
                                 if (usedInPlan.TryGetValue(w.Id, out var lastWeek))
                                 {
                                     var gap = week - lastWeek;
@@ -169,8 +183,9 @@ namespace FitupProject.BLL.Services
                         ));
                     }
 
-                    // Finisher: cardio(Lose fat) hoặc core(Gain muscle/Strength)
+                    // Finisher: cardio (LoseFat) hoặc core (GainMuscle/Strength)
                     bool wantCardioFinisher = onboarding.GoalType == GoalType.LoseFat;
+
                     picks.Add(PickBest(
                         candidates,
                         w => wantCardioFinisher
@@ -179,27 +194,42 @@ namespace FitupProject.BLL.Services
                         score: w =>
                         {
                             int s = 0;
-                            if (wantCardioFinisher && (w.PrimaryMuscle == MuscleGroup.Cardio || tagIndex[w.Id].Contains("cardio"))) s += 6;
-                            if (!wantCardioFinisher && (w.PrimaryMuscle == MuscleGroup.Core || tagIndex[w.Id].Contains("core"))) s += 6;
-                            if (requiredSafetyTags.Count > 0 && requiredSafetyTags.Except(tagIndex[w.Id]).Any()) s -= 8;
+
+                            if (wantCardioFinisher &&
+                                (w.PrimaryMuscle == MuscleGroup.Cardio || tagIndex[w.Id].Contains("cardio")))
+                                s += 6;
+
+                            if (!wantCardioFinisher &&
+                                (w.PrimaryMuscle == MuscleGroup.Core || tagIndex[w.Id].Contains("core")))
+                                s += 6;
+
+                            if (requiredSafetyTags.Count > 0 && requiredSafetyTags.Except(tagIndex[w.Id]).Any())
+                                s -= 8;
+
                             return s;
                         },
                         usedInPlan, week, rnd,
                         excludeIds: picks.Select(x => x.Id).ToHashSet()
                     ));
 
-                    // ===== lưu WorkoutSessionExercises =====
+                    //lưu WorkoutSessionExercises
                     int order = 1;
+
                     foreach (var w in picks.Where(x => x != null))
                     {
                         usedInPlan[w.Id] = week;
 
-                        var isCardio = w.PrimaryMuscle == MuscleGroup.Cardio || tagIndex[w.Id].Contains("cardio");
-                        var isWarmup = tagIndex[w.Id].Contains("warmup") || tagIndex[w.Id].Contains("mobility");
+                        var tags = tagIndex[w.Id];
+                        var isCardio = w.PrimaryMuscle == MuscleGroup.Cardio || tags.Contains("cardio");
+                        var isWarmup = tags.Contains("warmup") || tags.Contains("mobility");
 
                         int sets = isWarmup ? 1 : (int)Math.Max(1, Math.Round((baseSets + setsDelta) * deloadFactor));
                         string reps = isCardio ? "" : baseReps;
                         int rest = isWarmup ? 30 : baseRest;
+
+                        int? durationSeconds = null;
+                        if (isCardio)
+                            durationSeconds = onboarding.MinutesPerSession <= 30 ? 180 : 240;
 
                         var ex = new WorkoutSessionExercise
                         {
@@ -209,10 +239,11 @@ namespace FitupProject.BLL.Services
 
                             Sets = isCardio ? null : sets,
                             Reps = isCardio ? null : reps,
-                            DurationSeconds = isCardio ? (onboarding.MinutesPerSession <= 30 ? 30 : 45) : null,
+                            DurationSeconds = durationSeconds,
                             RestSeconds = rest,
                             Note = isWarmup ? "Warm-up" : (isCardio ? "Finisher" : null)
                         };
+
                         await mapRepo.AddAsync(ex);
                     }
 
@@ -223,7 +254,7 @@ namespace FitupProject.BLL.Services
             return plan.Id;
         }
 
-        // ===== Picker core =====
+        // Pick best
         private static Workout PickBest(
             List<Workout> candidates,
             Func<Workout, bool> filter,
@@ -243,22 +274,18 @@ namespace FitupProject.BLL.Services
 
             if (list.Count == 0)
             {
-                //lấy ngẫu nhiên bài chưa dùng
                 var fb = candidates.FirstOrDefault(w => !excludeIds.Contains(w.Id));
                 return fb!;
             }
 
-            // random nhẹ trong để plan không giống nhau hehe :))
             var pick = list[rnd.Next(Math.Min(4, list.Count))].w;
             return pick;
         }
-
 
         public async Task<object> GetPlanDetailAsync(string planId, string accountId)
         {
             var planRepo = _uow.GetRepository<WorkoutPlan>();
 
-            // load full tree
             var plan = await planRepo.Entities
                 .Where(p => p.Id == planId && p.AccountId == accountId)
                 .Include(p => p.WorkoutSchedules!)
@@ -269,7 +296,6 @@ namespace FitupProject.BLL.Services
 
             if (plan == null) throw new ExceptionHandler("WorkoutPlan not found.");
 
-            // return DTO-like anonymous object
             return new
             {
                 plan.Id,
@@ -288,6 +314,7 @@ namespace FitupProject.BLL.Services
                             {
                                 s.DayNumber,
                                 s.Progress,
+                                s.Notes,
                                 exercises = s.WorkoutSessionExercises!
                                     .OrderBy(e => e.Order)
                                     .Select(e => new
@@ -297,6 +324,7 @@ namespace FitupProject.BLL.Services
                                         e.Reps,
                                         e.DurationSeconds,
                                         e.RestSeconds,
+                                        e.Note,
                                         workout = new
                                         {
                                             e.Workout!.Id,
@@ -319,7 +347,6 @@ namespace FitupProject.BLL.Services
             if (string.IsNullOrWhiteSpace(planId))
                 throw new ExceptionHandler("PlanId is required.");
 
-            // check plan thuộc account
             var planRepo = _uow.GetRepository<WorkoutPlan>();
             var plan = await planRepo.Entities
                 .FirstOrDefaultAsync(p => p.Id == planId && p.AccountId == accountId);
@@ -327,57 +354,51 @@ namespace FitupProject.BLL.Services
             if (plan == null)
                 throw new ExceptionHandler("WorkoutPlan not found.");
 
-            // lấy schedules của plan
             var scheduleRepo = _uow.GetRepository<WorkoutSchedule>();
-            var schedules = await scheduleRepo.Entities
+            var scheduleIds = await scheduleRepo.Entities
                 .Where(s => s.WorkoutPlanId == planId)
                 .Select(s => s.Id)
                 .ToListAsync();
 
-            if (schedules.Count > 0)
+            if (scheduleIds.Count > 0)
             {
-                // lấy sessions
                 var sessionRepo = _uow.GetRepository<WorkoutSession>();
-                var sessions = await sessionRepo.Entities
-                    .Where(ss => schedules.Contains(ss.WorkoutScheduleId))
+                var sessionIds = await sessionRepo.Entities
+                    .Where(ss => scheduleIds.Contains(ss.WorkoutScheduleId))
                     .Select(ss => ss.Id)
                     .ToListAsync();
 
-                if (sessions.Count > 0)
+                if (sessionIds.Count > 0)
                 {
-                    // xoá exercises trước
                     var exRepo = _uow.GetRepository<WorkoutSessionExercise>();
                     var exercises = await exRepo.Entities
-                        .Where(e => sessions.Contains(e.WorkoutSessionId))
+                        .Where(e => sessionIds.Contains(e.WorkoutSessionId))
                         .ToListAsync();
 
                     if (exercises.Count > 0)
                         exRepo.DeleteRange(exercises);
 
-                    // xoá sessions
-                    var sessionEntities = await sessionRepo.Entities
-                        .Where(ss => sessions.Contains(ss.Id))
+                    var sessions = await sessionRepo.Entities
+                        .Where(ss => sessionIds.Contains(ss.Id))
                         .ToListAsync();
 
-                    if (sessionEntities.Count > 0)
-                        sessionRepo.DeleteRange(sessionEntities);
+                    if (sessions.Count > 0)
+                        sessionRepo.DeleteRange(sessions);
                 }
 
-                // xoá schedules
-                var scheduleEntities = await scheduleRepo.Entities
+                var schedules = await scheduleRepo.Entities
                     .Where(s => s.WorkoutPlanId == planId)
                     .ToListAsync();
 
-                if (scheduleEntities.Count > 0)
-                    scheduleRepo.DeleteRange(scheduleEntities);
+                if (schedules.Count > 0)
+                    scheduleRepo.DeleteRange(schedules);
             }
 
-            // xoá plan
             planRepo.Delete(plan);
             await _uow.SaveAsync();
         }
 
-        //Helpers
+        //-----Helpers
         private static HashSet<string> ParseCsv(string? csv)
         {
             return (csv ?? "")
@@ -433,18 +454,14 @@ namespace FitupProject.BLL.Services
             };
         }
 
-        private static (int setsDelta, string repsHint, double deloadFactor) WeekProgression(int week)
+        private static (int setsDelta, string repsHint, double deloadFactor) WeekProgression(int week, int totalWeeks)
         {
-            // week: 1..4
-            return week switch
-            {
-                1 => (0, "", 1.0),
-                2 => (+1, "", 1.0),
-                3 => (+1, "+2 reps if easy", 1.0),
-                4 => (-1, "deload", 0.75), // giảm volume
-                _ => (0, "", 1.0)
-            };
-        }
+            if (week == totalWeeks)
+                return (-1, "deload", 0.75);
 
+            var setsDelta = Math.Min(2, (week - 1) / 2);
+            var repsHint = week >= 3 ? "+2 reps if easy" : "";
+            return (setsDelta, repsHint, 1.0);
+        }
     }
 }
