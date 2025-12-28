@@ -10,6 +10,7 @@ namespace FitupProject.Core.Entities
         public GoalType GoalType { get; set; }
         public ExperienceLevel ExperienceLevel { get; set; }
 
+        public int Weeks { get; set; } = 4;
         public int DaysPerWeek { get; set; }
         public int MinutesPerSession { get; set; }
 

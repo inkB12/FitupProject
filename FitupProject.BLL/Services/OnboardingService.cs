@@ -15,12 +15,16 @@ namespace FitupProject.BLL.Services
         {
             var repo = _uow.GetRepository<OnboardingProfile>();
 
+            var weeks = Math.Clamp(req.Weeks, 4, 12); //ràng buộc lại 4 đến 12 tuần cho đỡ lỗi hehe :)
+            int days = Math.Clamp(req.DaysPerWeek, 3, 6);
+
             var profile = new OnboardingProfile
             {
                 AccountId = accountId,
                 GoalType = req.GoalType,
                 ExperienceLevel = req.ExperienceLevel,
-                DaysPerWeek = req.DaysPerWeek,
+                Weeks = weeks,
+                DaysPerWeek = days,
                 MinutesPerSession = req.MinutesPerSession,
                 Equipment = req.Equipment,
                 FocusAreas = req.FocusAreas,
