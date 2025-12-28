@@ -78,6 +78,8 @@ builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddHostedService<PendingAccountCleanupService>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
+builder.Services.AddScoped<IWorkoutCatalogService, WorkoutCatalogService>();
+
 //Middleware
 builder.Services.AddTransient<ExceptionMiddleware>();
 
