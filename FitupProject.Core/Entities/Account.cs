@@ -26,5 +26,8 @@ namespace FitupProject.Core.Entities
         public int ResetPasswordOtpFailCount { get; set; } = 0;
 
         public UserProfile? UserProfile { get; set; }
+
+        public ICollection<OnboardingProfile>? OnboardingProfiles { get; set; }
+        public ICollection<WorkoutPlan>? WorkoutPlans { get; set; }
     }
 }
