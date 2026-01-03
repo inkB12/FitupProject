@@ -19,10 +19,22 @@ namespace FitupProject.Controllers
             _onboard = onboard;
         }
 
+        //lấy token
+        private string? GetAccountId()
+        {
+            return User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue("sub")
+                ?? User.FindFirstValue("nameid");
+        }
+
+        //generate
+        // POST /api/workout-plans/generate?onboardingProfileId=...
         [HttpPost("generate")]
         public async Task<IActionResult> Generate([FromQuery] string? onboardingProfileId)
         {
-            var accountId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var accountId = GetAccountId();
+            if (string.IsNullOrWhiteSpace(accountId))
+                return Unauthorized(new { message = "Unauthorized." });
 
             // nếu không truyền thì lấy latest
             onboardingProfileId ??= await _onboard.GetLatestIdAsync(accountId);
@@ -33,21 +45,77 @@ namespace FitupProject.Controllers
             return Ok(new { workoutPlanId = planId });
         }
 
+        //my plans (summary list)
+        // GET /api/workout-plans
+        [HttpGet]
+        public async Task<IActionResult> GetMyPlans()
+        {
+            var accountId = GetAccountId();
+            if (string.IsNullOrWhiteSpace(accountId))
+                return Unauthorized(new { message = "Unauthorized." });
+
+            var data = await _svc.GetMyPlansAsync(accountId);
+            return Ok(data);
+        }
+
+        //overview 1 plan (weeks summary)
+        // GET /api/workout-plans/{id}/overview
+        [HttpGet("{id}/overview")]
+        public async Task<IActionResult> GetOverview(string id)
+        {
+            var accountId = GetAccountId();
+            if (string.IsNullOrWhiteSpace(accountId))
+                return Unauthorized(new { message = "Unauthorized." });
+
+            var data = await _svc.GetPlanOverviewAsync(id, accountId);
+            return Ok(data);
+        }
+
+        //days in a week
+        // GET /api/workout-plans/{id}/weeks/{weekNumber}
+        [HttpGet("{id}/weeks/{weekNumber:int}")]
+        public async Task<IActionResult> GetWeekDays(string id, int weekNumber)
+        {
+            var accountId = GetAccountId();
+            if (string.IsNullOrWhiteSpace(accountId))
+                return Unauthorized(new { message = "Unauthorized." });
+
+            var data = await _svc.GetWeekDaysAsync(id, weekNumber, accountId);
+            return Ok(data);
+        }
+
+        //day detail (exercises)
+        // GET /api/workout-plans/{id}/weeks/{weekNumber}/days/{dayNumber}
+        [HttpGet("{id}/weeks/{weekNumber:int}/days/{dayNumber:int}")]
+        public async Task<IActionResult> GetDayDetail(string id, int weekNumber, int dayNumber)
+        {
+            var accountId = GetAccountId();
+            if (string.IsNullOrWhiteSpace(accountId))
+                return Unauthorized(new { message = "Unauthorized." });
+
+            var data = await _svc.GetDayDetailAsync(id, weekNumber, dayNumber, accountId);
+            return Ok(data);
+        }
+
+        //full detail tree
+        // GET /api/workout-plans/{id}
         [HttpGet("{id}")]
         public async Task<IActionResult> GetDetail(string id)
         {
-            var accountId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var accountId = GetAccountId();
+            if (string.IsNullOrWhiteSpace(accountId))
+                return Unauthorized(new { message = "Unauthorized." });
+
             var data = await _svc.GetPlanDetailAsync(id, accountId);
             return Ok(data);
         }
 
+        //delete plan
+        // DELETE /api/workout-plans/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
-            var accountId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                           ?? User.FindFirstValue("sub")
-                           ?? User.FindFirstValue("nameid");
-
+            var accountId = GetAccountId();
             if (string.IsNullOrWhiteSpace(accountId))
                 return Unauthorized(new { message = "Unauthorized." });
 

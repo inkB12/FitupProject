@@ -1,4 +1,5 @@
 ﻿using FitupProject.BLL.Commons.Exceptions;
+using FitupProject.BLL.DTOs.WorkoutPlans;
 using FitupProject.BLL.Interfaces;
 using FitupProject.Core.Commons.Enums;
 using FitupProject.Core.Entities;
@@ -396,6 +397,152 @@ namespace FitupProject.BLL.Services
 
             planRepo.Delete(plan);
             await _uow.SaveAsync();
+        }
+
+        public async Task<IEnumerable<WorkoutPlanSummaryDto>> GetMyPlansAsync(string accountId)
+        {
+            var planRepo = _uow.GetRepository<WorkoutPlan>();
+
+            return await planRepo.Entities
+                .Where(p => p.AccountId == accountId)
+                .OrderByDescending(p => p.CreatedAt)
+                .Select(p => new WorkoutPlanSummaryDto
+                {
+                    Id = p.Id,
+                    GoalType = p.GoalType,
+                    Progress = p.Progress,
+                    StartDate = p.StartDate,
+                    EndDate = p.EndDate,
+
+                    TotalWeeks = p.WorkoutSchedules!.Count(),
+                    TotalSessions = p.WorkoutSchedules!.SelectMany(w => w.WorkoutSessions!).Count()
+                })
+                .ToListAsync();
+        }
+
+        public async Task<WorkoutPlanOverviewDto> GetPlanOverviewAsync(string planId, string accountId)
+        {
+            var planRepo = _uow.GetRepository<WorkoutPlan>();
+
+            var data = await planRepo.Entities
+                .Where(p => p.Id == planId && p.AccountId == accountId)
+                .Select(p => new WorkoutPlanOverviewDto
+                {
+                    Id = p.Id,
+                    GoalType = p.GoalType,
+                    Progress = p.Progress,
+                    StartDate = p.StartDate,
+                    EndDate = p.EndDate,
+                    Weeks = p.WorkoutSchedules!
+                        .OrderBy(w => w.WeekNumber)
+                        .Select(w => new WorkoutPlanWeekDto
+                        {
+                            ScheduleId = w.Id,
+                            WeekNumber = w.WeekNumber,
+                            Describe = w.Describe,
+                            Progress = w.Progress,
+                            TotalDays = w.WorkoutSessions!.Count()
+                        })
+                        .ToList()
+                })
+                .FirstOrDefaultAsync();
+
+            if (data == null) throw new ExceptionHandler("WorkoutPlan not found.");
+            return data;
+        }
+
+        public async Task<IEnumerable<WorkoutDayDto>> GetWeekDaysAsync(string planId, int weekNumber, string accountId)
+        {
+            // verify plan belongs to account + find that week schedule
+            var scheduleRepo = _uow.GetRepository<WorkoutSchedule>();
+
+            var scheduleId = await scheduleRepo.Entities
+                .Where(s => s.WorkoutPlanId == planId && s.WeekNumber == weekNumber)
+                .Select(s => s.Id)
+                .FirstOrDefaultAsync();
+
+            if (string.IsNullOrWhiteSpace(scheduleId))
+                throw new ExceptionHandler("WorkoutSchedule (week) not found.");
+
+            // check plan ownership
+            var planRepo = _uow.GetRepository<WorkoutPlan>();
+            var ok = await planRepo.Entities.AnyAsync(p => p.Id == planId && p.AccountId == accountId);
+            if (!ok) throw new ExceptionHandler("WorkoutPlan not found.");
+
+            var sessionRepo = _uow.GetRepository<WorkoutSession>();
+
+            return await sessionRepo.Entities
+                .Where(s => s.WorkoutScheduleId == scheduleId)
+                .OrderBy(s => s.DayNumber)
+                .Select(s => new WorkoutDayDto
+                {
+                    SessionId = s.Id,
+                    DayNumber = s.DayNumber,
+                    Progress = s.Progress,
+                    Notes = s.Notes,
+                    ExerciseCount = s.WorkoutSessionExercises!.Count()
+                })
+                .ToListAsync();
+        }
+
+        public async Task<WorkoutSessionDetailDto> GetDayDetailAsync(string planId, int weekNumber, int dayNumber, string accountId)
+        {
+            // verify plan belongs to account
+            var planRepo = _uow.GetRepository<WorkoutPlan>();
+            var ok = await planRepo.Entities.AnyAsync(p => p.Id == planId && p.AccountId == accountId);
+            if (!ok) throw new ExceptionHandler("WorkoutPlan not found.");
+
+            // find scheduleId by planId + weekNumber
+            var scheduleRepo = _uow.GetRepository<WorkoutSchedule>();
+            var scheduleId = await scheduleRepo.Entities
+                .Where(s => s.WorkoutPlanId == planId && s.WeekNumber == weekNumber)
+                .Select(s => s.Id)
+                .FirstOrDefaultAsync();
+
+            if (string.IsNullOrWhiteSpace(scheduleId))
+                throw new ExceptionHandler("WorkoutSchedule (week) not found.");
+
+            // load that day (with exercises + workout)
+            var sessionRepo = _uow.GetRepository<WorkoutSession>();
+
+            var session = await sessionRepo.Entities
+                .Where(s => s.WorkoutScheduleId == scheduleId && s.DayNumber == dayNumber)
+                .Include(s => s.WorkoutSessionExercises!)
+                    .ThenInclude(e => e.Workout)
+                .FirstOrDefaultAsync();
+
+            if (session == null) throw new ExceptionHandler("WorkoutSession (day) not found.");
+
+            return new WorkoutSessionDetailDto
+            {
+                SessionId = session.Id,
+                DayNumber = session.DayNumber,
+                Notes = session.Notes,
+                Progress = session.Progress,
+                Exercises = session.WorkoutSessionExercises!
+                    .OrderBy(e => e.Order)
+                    .Select(e => new WorkoutSessionExerciseDto
+                    {
+                        Order = e.Order,
+                        Sets = e.Sets,
+                        Reps = e.Reps,
+                        DurationSeconds = e.DurationSeconds,
+                        RestSeconds = e.RestSeconds,
+                        Note = e.Note,
+                        Workout = new WorkoutMiniDto
+                        {
+                            Id = e.Workout!.Id,
+                            Name = e.Workout.Name,
+                            Describe = e.Workout.Describe,
+                            InstructionVidLink = e.Workout.InstructionVidLink,
+                            Level = e.Workout.Level,
+                            Equipment = e.Workout.Equipment,
+                            PrimaryMuscle = e.Workout.PrimaryMuscle,
+                            Tags = e.Workout.Tags
+                        }
+                    })
+                    .ToList()
+            };
         }
 
         //-----Helpers
