@@ -13,8 +13,8 @@ namespace FitupProject.Core.Entities
         public GoalType GoalType { get; set; }
         public int Progress { get; set; } = 0;
 
-        public DateTimeOffset? StartDate { get; set; }
-        public DateTimeOffset? EndDate { get; set; }
+        public DateTimeOffset StartDate { get; set; }
+        public DateTimeOffset EndDate { get; set; }
 
         //public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
