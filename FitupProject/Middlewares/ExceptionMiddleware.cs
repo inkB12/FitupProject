@@ -5,6 +5,9 @@ namespace FitupProject.Middlewares
 {
     public class ExceptionMiddleware : IMiddleware
     {
+        private readonly ILogger<ExceptionMiddleware> _logger;
+        public ExceptionMiddleware(ILogger<ExceptionMiddleware> logger) => _logger = logger;
+
         public async Task InvokeAsync(HttpContext context, RequestDelegate next)
         {
             try
@@ -20,13 +23,14 @@ namespace FitupProject.Middlewares
                     message = ex.Message
                 }));
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                _logger.LogError(ex, "Unhandled exception");
+                context.Response.StatusCode = 500;
                 context.Response.ContentType = "application/json";
-                await context.Response.WriteAsync(JsonSerializer.Serialize(new
-                {
-                    message = "Internal server error."
+                await context.Response.WriteAsync(JsonSerializer.Serialize(new 
+                { 
+                    message = "Internal server error." 
                 }));
             }
         }

@@ -96,7 +96,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 builder.Services.AddAuthorization();
-
+builder.Services.AddHttpClient();
 
 //---- DI Uow + IGenericRepository
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
@@ -104,7 +104,8 @@ builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepositor
 
 //---- DI Services
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+//builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+builder.Services.AddScoped<IEmailSender, ResendEmailSender>();
 builder.Services.AddHostedService<PendingAccountCleanupService>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
