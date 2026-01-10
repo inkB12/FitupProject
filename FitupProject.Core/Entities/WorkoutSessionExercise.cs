@@ -14,6 +14,7 @@ namespace FitupProject.Core.Entities
         public int? DurationSeconds { get; set; }   // cardio/hold
         public int? RestSeconds { get; set; }
         public string? Note { get; set; }
+        public bool IsCompleted { get; set; } = false;
 
         // nav
         public WorkoutSession? WorkoutSession { get; set; }

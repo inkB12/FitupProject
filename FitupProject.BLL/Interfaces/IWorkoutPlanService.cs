@@ -1,5 +1,4 @@
 ﻿using FitupProject.BLL.DTOs.WorkoutPlans;
-using FitupProject.BLL.DTOs.Workouts;
 
 namespace FitupProject.BLL.Interfaces
 {
@@ -13,5 +12,9 @@ namespace FitupProject.BLL.Interfaces
         Task<WorkoutPlanOverviewDto> GetPlanOverviewAsync(string planId, string accountId);
         Task<IEnumerable<WorkoutDayDto>> GetWeekDaysAsync(string planId, int weekNumber, string accountId);
         Task<WorkoutSessionDetailDto> GetDayDetailAsync(string planId, int weekNumber, int dayNumber, string accountId);
+        Task<ProgressDto> UpdateExerciseProgressAsync(string planId, string sessionExerciseId, bool isCompleted, string accountId);
+        Task<ProgressDto> GetPlanProgressAsync(string planId, string accountId);
+        Task<ProgressDto> GetWeekProgressAsync(string planId, int weekNumber, string accountId);
+        Task<ProgressDto> GetDayProgressAsync(string planId, int weekNumber, int dayNumber, string accountId);
     }
 }

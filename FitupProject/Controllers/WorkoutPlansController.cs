@@ -1,4 +1,5 @@
 ﻿using System.Security.Claims;
+using FitupProject.BLL.DTOs.WorkoutPlans;
 using FitupProject.BLL.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -121,6 +122,66 @@ namespace FitupProject.Controllers
 
             await _svc.DeletePlanAsync(id, accountId);
             return Ok(new { message = "Deleted successfully." });
+        }
+
+        //update status WorkoutSessionExercise
+        [HttpPatch("{planId}/exercises/{sessionExerciseId}")]
+        public async Task<IActionResult> UpdateExerciseProgress(string planId, string sessionExerciseId, [FromBody] UpdateExerciseProgressRequest req)
+        {
+            var accountId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                           ?? User.FindFirstValue("sub")
+                           ?? User.FindFirstValue("nameid");
+
+            if (string.IsNullOrWhiteSpace(accountId))
+                return Unauthorized(new { message = "Unauthorized." });
+
+            var progress = await _svc.UpdateExerciseProgressAsync(planId, sessionExerciseId, req.IsCompleted, accountId);
+            return Ok(progress);
+        }
+
+        //progress plan
+        [HttpGet("{planId}/progress")]
+        public async Task<IActionResult> GetPlanProgress(string planId)
+        {
+            var accountId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                           ?? User.FindFirstValue("sub")
+                           ?? User.FindFirstValue("nameid");
+
+            if (string.IsNullOrWhiteSpace(accountId))
+                return Unauthorized(new { message = "Unauthorized." });
+
+            var progress = await _svc.GetPlanProgressAsync(planId, accountId);
+            return Ok(progress);
+        }
+
+        //progress week
+        [HttpGet("{planId}/weeks/{weekNumber}/progress")]
+        public async Task<IActionResult> GetWeekProgress(string planId, int weekNumber)
+        {
+            var accountId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                           ?? User.FindFirstValue("sub")
+                           ?? User.FindFirstValue("nameid");
+
+            if (string.IsNullOrWhiteSpace(accountId))
+                return Unauthorized(new { message = "Unauthorized." });
+
+            var progress = await _svc.GetWeekProgressAsync(planId, weekNumber, accountId);
+            return Ok(progress);
+        }
+
+        //progress day
+        [HttpGet("{planId}/weeks/{weekNumber}/days/{dayNumber}/progress")]
+        public async Task<IActionResult> GetDayProgress(string planId, int weekNumber, int dayNumber)
+        {
+            var accountId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                           ?? User.FindFirstValue("sub")
+                           ?? User.FindFirstValue("nameid");
+
+            if (string.IsNullOrWhiteSpace(accountId))
+                return Unauthorized(new { message = "Unauthorized." });
+
+            var progress = await _svc.GetDayProgressAsync(planId, weekNumber, dayNumber, accountId);
+            return Ok(progress);
         }
     }
 }

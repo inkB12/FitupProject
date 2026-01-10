@@ -523,6 +523,8 @@ namespace FitupProject.BLL.Services
                     .OrderBy(e => e.Order)
                     .Select(e => new WorkoutSessionExerciseDto
                     {
+                        Id = e.Id,
+                        IsCompleted = e.IsCompleted,
                         Order = e.Order,
                         Sets = e.Sets,
                         Reps = e.Reps,
@@ -544,6 +546,143 @@ namespace FitupProject.BLL.Services
                     .ToList()
             };
         }
+
+        public async Task<ProgressDto> UpdateExerciseProgressAsync(string planId, string sessionExerciseId, bool isCompleted, string accountId)
+        {
+            // load exercise + ensure nó thuộc plan & account
+            var exRepo = _uow.GetRepository<WorkoutSessionExercise>();
+
+            var ex = await exRepo.Entities
+                .Include(x => x.WorkoutSession!)
+                    .ThenInclude(s => s.WorkoutSchedule!)
+                        .ThenInclude(w => w.WorkoutPlan!)
+                .FirstOrDefaultAsync(x =>
+                    x.Id == sessionExerciseId &&
+                    x.WorkoutSession!.WorkoutSchedule!.WorkoutPlan!.Id == planId &&
+                    x.WorkoutSession!.WorkoutSchedule!.WorkoutPlan!.AccountId == accountId);
+
+            if (ex == null) throw new ExceptionHandler("WorkoutSessionExercise not found.");
+
+            ex.IsCompleted = isCompleted;
+            exRepo.Update(ex);
+            await _uow.SaveAsync();
+
+            var sessionId = ex.WorkoutSessionId;
+            var scheduleId = ex.WorkoutSession!.WorkoutScheduleId;
+
+            // recompute session
+            await RecalcSessionProgressAsync(sessionId);
+
+            // recompute schedule
+            await RecalcScheduleProgressAsync(scheduleId);
+
+            // recompute plan
+            await RecalcPlanProgressAsync(planId);
+
+            // trả về progress plan mới nhất
+            return await GetPlanProgressAsync(planId, accountId);
+        }
+
+
+        public async Task<ProgressDto> GetPlanProgressAsync(string planId, string accountId)
+        {
+            var planRepo = _uow.GetRepository<WorkoutPlan>();
+            var ok = await planRepo.Entities.AnyAsync(p => p.Id == planId && p.AccountId == accountId);
+            if (!ok) throw new ExceptionHandler("WorkoutPlan not found.");
+
+            var exRepo = _uow.GetRepository<WorkoutSessionExercise>();
+
+            var total = await exRepo.Entities
+                .Where(e => e.WorkoutSession!.WorkoutSchedule!.WorkoutPlanId == planId)
+                .CountAsync();
+
+            var done = await exRepo.Entities
+                .Where(e => e.WorkoutSession!.WorkoutSchedule!.WorkoutPlanId == planId && e.IsCompleted)
+                .CountAsync();
+
+            return new ProgressDto
+            {
+                TotalExercises = total,
+                CompletedExercises = done,
+                ProgressPercent = ToPercent(done, total)
+            };
+        }
+
+        public async Task<ProgressDto> GetWeekProgressAsync(string planId, int weekNumber, string accountId)
+        {
+            // verify plan belongs to account
+            var planRepo = _uow.GetRepository<WorkoutPlan>();
+            var ok = await planRepo.Entities.AnyAsync(p => p.Id == planId && p.AccountId == accountId);
+            if (!ok) throw new ExceptionHandler("WorkoutPlan not found.");
+
+            var scheduleRepo = _uow.GetRepository<WorkoutSchedule>();
+            var scheduleId = await scheduleRepo.Entities
+                .Where(s => s.WorkoutPlanId == planId && s.WeekNumber == weekNumber)
+                .Select(s => s.Id)
+                .FirstOrDefaultAsync();
+
+            if (string.IsNullOrWhiteSpace(scheduleId))
+                throw new ExceptionHandler("WorkoutSchedule (week) not found.");
+
+            var exRepo = _uow.GetRepository<WorkoutSessionExercise>();
+
+            var total = await exRepo.Entities
+                .Where(e => e.WorkoutSession!.WorkoutScheduleId == scheduleId)
+                .CountAsync();
+
+            var done = await exRepo.Entities
+                .Where(e => e.WorkoutSession!.WorkoutScheduleId == scheduleId && e.IsCompleted)
+                .CountAsync();
+
+            return new ProgressDto
+            {
+                TotalExercises = total,
+                CompletedExercises = done,
+                ProgressPercent = ToPercent(done, total)
+            };
+        }
+
+        public async Task<ProgressDto> GetDayProgressAsync(string planId, int weekNumber, int dayNumber, string accountId)
+        {
+            // verify plan belongs to account
+            var planRepo = _uow.GetRepository<WorkoutPlan>();
+            var ok = await planRepo.Entities.AnyAsync(p => p.Id == planId && p.AccountId == accountId);
+            if (!ok) throw new ExceptionHandler("WorkoutPlan not found.");
+
+            var scheduleRepo = _uow.GetRepository<WorkoutSchedule>();
+            var scheduleId = await scheduleRepo.Entities
+                .Where(s => s.WorkoutPlanId == planId && s.WeekNumber == weekNumber)
+                .Select(s => s.Id)
+                .FirstOrDefaultAsync();
+
+            if (string.IsNullOrWhiteSpace(scheduleId))
+                throw new ExceptionHandler("WorkoutSchedule (week) not found.");
+
+            var sessionRepo = _uow.GetRepository<WorkoutSession>();
+            var sessionId = await sessionRepo.Entities
+                .Where(s => s.WorkoutScheduleId == scheduleId && s.DayNumber == dayNumber)
+                .Select(s => s.Id)
+                .FirstOrDefaultAsync();
+
+            if (string.IsNullOrWhiteSpace(sessionId))
+                throw new ExceptionHandler("WorkoutSession (day) not found.");
+
+            var exRepo = _uow.GetRepository<WorkoutSessionExercise>();
+
+            var total = await exRepo.Entities.CountAsync(e => e.WorkoutSessionId == sessionId);
+            var done = await exRepo.Entities.CountAsync(e => e.WorkoutSessionId == sessionId && e.IsCompleted);
+
+            return new ProgressDto
+            {
+                TotalExercises = total,
+                CompletedExercises = done,
+                ProgressPercent = ToPercent(done, total)
+            };
+        }
+
+
+
+
 
         //-----Helpers
         private static HashSet<string> ParseCsv(string? csv)
@@ -609,6 +748,74 @@ namespace FitupProject.BLL.Services
             var setsDelta = Math.Min(2, (week - 1) / 2);
             var repsHint = week >= 3 ? "+2 reps if easy" : "";
             return (setsDelta, repsHint, 1.0);
+        }
+
+        private static int ToPercent(int completed, int total)
+        {
+            if (total <= 0) return 0;
+            return (int)Math.Round(completed * 100.0 / total, MidpointRounding.AwayFromZero);
+        }
+
+        private async Task RecalcSessionProgressAsync(string sessionId)
+        {
+            var sessionRepo = _uow.GetRepository<WorkoutSession>();
+            var exRepo = _uow.GetRepository<WorkoutSessionExercise>();
+
+            var total = await exRepo.Entities.CountAsync(x => x.WorkoutSessionId == sessionId);
+            var done = await exRepo.Entities.CountAsync(x => x.WorkoutSessionId == sessionId && x.IsCompleted);
+
+            var session = await sessionRepo.Entities.FirstOrDefaultAsync(s => s.Id == sessionId);
+            if (session == null) return;
+
+            session.Progress = ToPercent(done, total);
+            sessionRepo.Update(session);
+
+            await _uow.SaveAsync();
+        }
+
+        private async Task RecalcScheduleProgressAsync(string scheduleId)
+        {
+            var scheduleRepo = _uow.GetRepository<WorkoutSchedule>();
+            var exRepo = _uow.GetRepository<WorkoutSessionExercise>();
+
+            // total/done exercises under this schedule
+            var total = await exRepo.Entities
+                .Where(e => e.WorkoutSession!.WorkoutScheduleId == scheduleId)
+                .CountAsync();
+
+            var done = await exRepo.Entities
+                .Where(e => e.WorkoutSession!.WorkoutScheduleId == scheduleId && e.IsCompleted)
+                .CountAsync();
+
+            var schedule = await scheduleRepo.Entities.FirstOrDefaultAsync(s => s.Id == scheduleId);
+            if (schedule == null) return;
+
+            schedule.Progress = ToPercent(done, total);
+            scheduleRepo.Update(schedule);
+
+            await _uow.SaveAsync();
+        }
+
+        private async Task RecalcPlanProgressAsync(string planId)
+        {
+            var planRepo = _uow.GetRepository<WorkoutPlan>();
+            var exRepo = _uow.GetRepository<WorkoutSessionExercise>();
+
+            var total = await exRepo.Entities
+                .Where(e => e.WorkoutSession!.WorkoutSchedule!.WorkoutPlanId == planId)
+                .CountAsync();
+
+            var done = await exRepo.Entities
+                .Where(e => e.WorkoutSession!.WorkoutSchedule!.WorkoutPlanId == planId && e.IsCompleted)
+                .CountAsync();
+
+            var plan = await planRepo.Entities.FirstOrDefaultAsync(p => p.Id == planId);
+            if (plan == null) return;
+
+            plan.Progress = ToPercent(done, total);
+            planRepo.Update(plan);
+
+            await _uow.SaveAsync();
         }
     }
 }

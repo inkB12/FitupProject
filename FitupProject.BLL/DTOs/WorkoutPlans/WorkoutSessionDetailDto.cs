@@ -14,6 +14,8 @@ namespace FitupProject.BLL.DTOs.WorkoutPlans
 
     public class WorkoutSessionExerciseDto
     {
+        public string Id { get; set; } = default!;   
+        public bool IsCompleted { get; set; }
         public int Order { get; set; }
         public int? Sets { get; set; }
         public string? Reps { get; set; }
