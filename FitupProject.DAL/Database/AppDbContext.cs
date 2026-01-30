@@ -223,6 +223,8 @@ namespace FitupProject.DAL.Database
                 e.Property(x => x.Amount).HasPrecision(18, 2);
                 e.Property(x => x.Status).HasConversion<string>();
 
+                e.HasIndex(x => x.VnpTxnRef).IsUnique();
+
                 e.HasOne(x => x.Account)
                  .WithMany(a => a.Payments)
                  .HasForeignKey(x => x.AccountId)
@@ -232,9 +234,6 @@ namespace FitupProject.DAL.Database
                  .WithMany(cr => cr.Payments)
                  .HasForeignKey(x => x.ConversionRateId)
                  .OnDelete(DeleteBehavior.Restrict);
-
-                e.HasIndex(x => x.AccountId);
-                e.HasIndex(x => x.ConversionRateId);
             });
 
             // PremiumType

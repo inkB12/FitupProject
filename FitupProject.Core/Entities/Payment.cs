@@ -13,10 +13,17 @@ namespace FitupProject.Core.Entities
         public string AccountId { get; set; } = string.Empty;
         public string ConversionRateId { get; set; } = string.Empty;
 
-        public decimal Amount { get; set; } // tiền thật hoặc point gốc (tuỳ định nghĩa)
+        public decimal Amount { get; set; } // VND
         public PaymentStatus Status { get; set; } = PaymentStatus.Pending;
 
-        // nav
+        // VNPAY optional logs
+        public string? VnpTxnRef { get; set; }          // vnp_TxnRef
+        public string? VnpTransactionNo { get; set; }   // vnp_TransactionNo
+        public string? VnpResponseCode { get; set; }    // vnp_ResponseCode
+        public string? VnpTransactionStatus { get; set; } // vnp_TransactionStatus
+        public string? VnpBankCode { get; set; }
+        public DateTimeOffset? PaidAt { get; set; }
+
         public Account? Account { get; set; }
         public ConversionRate? ConversionRate { get; set; }
     }
