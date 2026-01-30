@@ -16,6 +16,18 @@ namespace FitupProject.DAL.Database
         public DbSet<WorkoutSessionExercise> WorkoutSessionExercises { get; set; }
         public DbSet<Workout> Workouts { get; set; }
         public DbSet<WorkoutType> WorkoutTypes { get; set; }
+        public DbSet<PT> PTs { get; set; }
+        public DbSet<Slot> Slots { get; set; }
+        public DbSet<SlotForBooking> SlotForBookings { get; set; }
+        public DbSet<Booking> Bookings { get; set; }
+        public DbSet<BookingReview> BookingReviews { get; set; }
+        public DbSet<ConversionRate> ConversionRates { get; set; }
+        public DbSet<Payment> Payments { get; set; }
+        public DbSet<PremiumType> PremiumTypes { get; set; }
+        public DbSet<Premium> Premiums { get; set; }
+        public DbSet<ServicePayment> ServicePayments { get; set; }
+        public DbSet<BookingPayment> BookingPayments { get; set; }
+        public DbSet<PremiumPayment> PremiumPayments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -120,6 +132,182 @@ namespace FitupProject.DAL.Database
             // Workouts 
             modelBuilder.Entity<Workout>()
                 .HasIndex(x => x.WorkoutTypeId);
+
+            modelBuilder.Entity<PT>(e =>
+            {
+                e.HasIndex(x => x.AccountId).IsUnique();
+
+                e.Property(x => x.PricePerHour).HasPrecision(18, 2);
+                e.Property(x => x.Rating).HasPrecision(18, 2);
+                e.Property(x => x.VerificationStatus).HasConversion<string>();
+
+                e.HasOne(x => x.Account)
+                 .WithOne(a => a.PT) // nếu bạn CHƯA add a.PT thì đổi thành .WithMany() và bỏ unique index
+                 .HasForeignKey<PT>(x => x.AccountId)
+                 .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Slot (PT 1-n Slot)
+            modelBuilder.Entity<Slot>(e =>
+            {
+                e.Property(x => x.Price).HasPrecision(18, 2);
+                e.Property(x => x.Status).HasConversion<string>();
+
+                e.HasOne(x => x.PT)
+                 .WithMany(p => p.Slots)
+                 .HasForeignKey(x => x.PTId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasIndex(x => x.PTId);
+            });
+
+            // SlotForBooking (Slot 1-n SlotForBooking)
+            modelBuilder.Entity<SlotForBooking>(e =>
+            {
+                e.Property(x => x.Price).HasPrecision(18, 2);
+                e.Property(x => x.Status).HasConversion<string>();
+
+                e.HasOne(x => x.Slot)
+                 .WithMany(s => s.SlotForBookings)
+                 .HasForeignKey(x => x.SlotId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                // tránh trùng 1 slot + 1 ngày
+                e.HasIndex(x => new { x.SlotId, x.BookingDate }).IsUnique();
+            });
+
+            // Booking (Account 1-n Booking) + (SlotForBooking 1-n Booking)
+            // Nếu bạn muốn SlotForBooking chỉ có đúng 1 booking => mình sẽ đổi sang 1-1 + unique index
+            modelBuilder.Entity<Booking>(e =>
+            {
+                e.Property(x => x.Total).HasPrecision(18, 2);
+                e.Property(x => x.Status).HasConversion<string>();
+
+                e.HasOne(x => x.Account)
+                 .WithMany(a => a.Bookings)
+                 .HasForeignKey(x => x.AccountId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(x => x.SlotForBooking)
+                 .WithMany(sfb => sfb.Bookings)
+                 .HasForeignKey(x => x.SlotForBookingId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(x => x.AccountId);
+                e.HasIndex(x => x.SlotForBookingId);
+            });
+
+            // BookingReview (Booking 1-0..1 Review)
+            modelBuilder.Entity<BookingReview>(e =>
+            {
+                e.Property(x => x.Status).HasConversion<string>();
+
+                e.HasOne(x => x.Booking)
+                 .WithOne(b => b.BookingReview)
+                 .HasForeignKey<BookingReview>(x => x.BookingId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasIndex(x => x.BookingId).IsUnique();
+            });
+
+            // ConversionRate
+            modelBuilder.Entity<ConversionRate>(e =>
+            {
+                e.Property(x => x.Rate).HasPrecision(18, 6);
+                e.Property(x => x.Status).HasConversion<string>();
+            });
+
+            // Payment (top-up tiền thật)
+            modelBuilder.Entity<Payment>(e =>
+            {
+                e.Property(x => x.Amount).HasPrecision(18, 2);
+                e.Property(x => x.Status).HasConversion<string>();
+
+                e.HasOne(x => x.Account)
+                 .WithMany(a => a.Payments)
+                 .HasForeignKey(x => x.AccountId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(x => x.ConversionRate)
+                 .WithMany(cr => cr.Payments)
+                 .HasForeignKey(x => x.ConversionRateId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(x => x.AccountId);
+                e.HasIndex(x => x.ConversionRateId);
+            });
+
+            // PremiumType
+            modelBuilder.Entity<PremiumType>(e =>
+            {
+                e.Property(x => x.Price).HasPrecision(18, 2);
+                e.Property(x => x.Status).HasConversion<string>();
+            });
+
+            // Premium (Account 1-n Premium, PremiumType 1-n Premium)
+            modelBuilder.Entity<Premium>(e =>
+            {
+                e.Property(x => x.Status).HasConversion<string>();
+
+                e.HasOne(x => x.Account)
+                 .WithMany(a => a.Premiums)
+                 .HasForeignKey(x => x.AccountId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(x => x.PremiumType)
+                 .WithMany(t => t.Premiums)
+                 .HasForeignKey(x => x.PremiumTypeId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(x => x.AccountId);
+                e.HasIndex(x => x.PremiumTypeId);
+            });
+
+            // ServicePayment (trừ point)
+            modelBuilder.Entity<ServicePayment>(e =>
+            {
+                e.Property(x => x.Amount).HasPrecision(18, 2);
+                e.Property(x => x.ServiceType).HasConversion<string>();
+                e.Property(x => x.Status).HasConversion<string>();
+            });
+
+            // BookingPayment
+            modelBuilder.Entity<BookingPayment>(e =>
+            {
+                e.Property(x => x.Price).HasPrecision(18, 2);
+
+                e.HasOne(x => x.Booking)
+                 .WithMany(b => b.BookingPayments)
+                 .HasForeignKey(x => x.BookingId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(x => x.ServicePayment)
+                 .WithMany(sp => sp.BookingPayments)
+                 .HasForeignKey(x => x.ServicePaymentId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(x => x.BookingId);
+                e.HasIndex(x => x.ServicePaymentId);
+            });
+
+            // PremiumPayment
+            modelBuilder.Entity<PremiumPayment>(e =>
+            {
+                e.Property(x => x.Price).HasPrecision(18, 2);
+
+                e.HasOne(x => x.Premium)
+                 .WithMany(p => p.PremiumPayments)
+                 .HasForeignKey(x => x.PremiumId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(x => x.ServicePayment)
+                 .WithMany(sp => sp.PremiumPayments)
+                 .HasForeignKey(x => x.ServicePaymentId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(x => x.PremiumId);
+                e.HasIndex(x => x.ServicePaymentId);
+            });
         }
     }
 }
