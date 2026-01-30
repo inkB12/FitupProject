@@ -1,5 +1,4 @@
-﻿using FitupProject.BLL.Commons.Exceptions;
-using FitupProject.BLL.DTOs.Workouts;
+﻿using FitupProject.BLL.DTOs.Workouts;
 using FitupProject.BLL.Interfaces;
 using FitupProject.Core.Commons.Enums;
 using FitupProject.Core.Entities;
@@ -17,13 +16,13 @@ namespace FitupProject.BLL.Services
         {
             type = (type ?? "").Trim();
             if (string.IsNullOrWhiteSpace(type))
-                throw new ExceptionHandler("WorkoutType is required.");
+                throw new Exception("WorkoutType is required.");
 
             var repo = _uow.GetRepository<WorkoutType>();
 
             var exists = await repo.Entities.AnyAsync(x => x.Type.ToLower() == type.ToLower());
             if (exists)
-                throw new ExceptionHandler("WorkoutType already exists.");
+                throw new Exception("WorkoutType already exists.");
 
             var wt = new WorkoutType { Type = type };
             await repo.AddAsync(wt);
@@ -35,24 +34,24 @@ namespace FitupProject.BLL.Services
         public async Task<string> CreateWorkoutAsync(WorkoutCreateRequest req)
         {
             if (string.IsNullOrWhiteSpace(req.WorkoutTypeId))
-                throw new ExceptionHandler("WorkoutTypeId is required.");
+                throw new Exception("WorkoutTypeId is required.");
 
             if (string.IsNullOrWhiteSpace(req.Name))
-                throw new ExceptionHandler("Name is required.");
+                throw new Exception("Name is required.");
 
             // validate enum ints
             if (!Enum.IsDefined(typeof(WorkoutLevel), req.Level))
-                throw new ExceptionHandler("Invalid Level.");
+                throw new Exception("Invalid Level.");
             if (!Enum.IsDefined(typeof(EquipmentType), req.Equipment))
-                throw new ExceptionHandler("Invalid Equipment.");
+                throw new Exception("Invalid Equipment.");
             if (!Enum.IsDefined(typeof(MuscleGroup), req.PrimaryMuscle))
-                throw new ExceptionHandler("Invalid PrimaryMuscle.");
+                throw new Exception("Invalid PrimaryMuscle.");
 
             // check WorkoutType exists
             var typeRepo = _uow.GetRepository<WorkoutType>();
             var typeExists = await typeRepo.Entities.AnyAsync(x => x.Id == req.WorkoutTypeId);
             if (!typeExists)
-                throw new ExceptionHandler("WorkoutTypeId not found.");
+                throw new Exception("WorkoutTypeId not found.");
 
             var repo = _uow.GetRepository<Workout>();
 
@@ -78,16 +77,16 @@ namespace FitupProject.BLL.Services
         {
             newType = (newType ?? "").Trim();
             if (string.IsNullOrWhiteSpace(workoutTypeId))
-                throw new ExceptionHandler("WorkoutTypeId is required.");
+                throw new Exception("WorkoutTypeId is required.");
             if (string.IsNullOrWhiteSpace(newType))
-                throw new ExceptionHandler("WorkoutType is required.");
+                throw new Exception("WorkoutType is required.");
 
             var repo = _uow.GetRepository<WorkoutType>();
             var wt = await repo.Entities.FirstOrDefaultAsync(x => x.Id == workoutTypeId);
-            if (wt == null) throw new ExceptionHandler("WorkoutType not found.");
+            if (wt == null) throw new Exception("WorkoutType not found.");
 
             var duplicate = await repo.Entities.AnyAsync(x => x.Id != workoutTypeId && x.Type.ToLower() == newType.ToLower());
-            if (duplicate) throw new ExceptionHandler("WorkoutType already exists.");
+            if (duplicate) throw new Exception("WorkoutType already exists.");
 
             wt.Type = newType;
             _uow.GetRepository<WorkoutType>().Update(wt);
@@ -97,29 +96,29 @@ namespace FitupProject.BLL.Services
         public async Task UpdateWorkoutAsync(string workoutId, WorkoutUpdateRequest req)
         {
             if (string.IsNullOrWhiteSpace(workoutId))
-                throw new ExceptionHandler("WorkoutId is required.");
+                throw new Exception("WorkoutId is required.");
 
             if (string.IsNullOrWhiteSpace(req.WorkoutTypeId))
-                throw new ExceptionHandler("WorkoutTypeId is required.");
+                throw new Exception("WorkoutTypeId is required.");
 
             if (string.IsNullOrWhiteSpace(req.Name))
-                throw new ExceptionHandler("Name is required.");
+                throw new Exception("Name is required.");
 
             if (!Enum.IsDefined(typeof(WorkoutLevel), req.Level))
-                throw new ExceptionHandler("Invalid Level.");
+                throw new Exception("Invalid Level.");
             if (!Enum.IsDefined(typeof(EquipmentType), req.Equipment))
-                throw new ExceptionHandler("Invalid Equipment.");
+                throw new Exception("Invalid Equipment.");
             if (!Enum.IsDefined(typeof(MuscleGroup), req.PrimaryMuscle))
-                throw new ExceptionHandler("Invalid PrimaryMuscle.");
+                throw new Exception("Invalid PrimaryMuscle.");
 
             // check workout type tồn tại
             var typeRepo = _uow.GetRepository<WorkoutType>();
             var typeExists = await typeRepo.Entities.AnyAsync(x => x.Id == req.WorkoutTypeId);
-            if (!typeExists) throw new ExceptionHandler("WorkoutTypeId not found.");
+            if (!typeExists) throw new Exception("WorkoutTypeId not found.");
 
             var repo = _uow.GetRepository<Workout>();
             var w = await repo.Entities.FirstOrDefaultAsync(x => x.Id == workoutId);
-            if (w == null) throw new ExceptionHandler("Workout not found.");
+            if (w == null) throw new Exception("Workout not found.");
 
             w.WorkoutTypeId = req.WorkoutTypeId;
             w.Name = req.Name.Trim();
@@ -139,17 +138,17 @@ namespace FitupProject.BLL.Services
         public async Task DeleteWorkoutTypeAsync(string workoutTypeId)
         {
             if (string.IsNullOrWhiteSpace(workoutTypeId))
-                throw new ExceptionHandler("WorkoutTypeId is required.");
+                throw new Exception("WorkoutTypeId is required.");
 
             var repo = _uow.GetRepository<WorkoutType>();
             var wt = await repo.Entities.FirstOrDefaultAsync(x => x.Id == workoutTypeId);
-            if (wt == null) throw new ExceptionHandler("WorkoutType not found.");
+            if (wt == null) throw new Exception("WorkoutType not found.");
 
             // chặn xóa nếu còn workout
             var workoutRepo = _uow.GetRepository<Workout>();
             var hasWorkouts = await workoutRepo.Entities.AnyAsync(w => w.WorkoutTypeId == workoutTypeId);
             if (hasWorkouts)
-                throw new ExceptionHandler("Cannot delete this WorkoutType because it still has Workouts.");
+                throw new Exception("Cannot delete this WorkoutType because it still has Workouts.");
 
             repo.Delete(wt);
             await _uow.SaveAsync();
@@ -158,17 +157,17 @@ namespace FitupProject.BLL.Services
         public async Task DeleteWorkoutAsync(string workoutId)
         {
             if (string.IsNullOrWhiteSpace(workoutId))
-                throw new ExceptionHandler("WorkoutId is required.");
+                throw new Exception("WorkoutId is required.");
 
             var repo = _uow.GetRepository<Workout>();
             var w = await repo.Entities.FirstOrDefaultAsync(x => x.Id == workoutId);
-            if (w == null) throw new ExceptionHandler("Workout not found.");
+            if (w == null) throw new Exception("Workout not found.");
 
             // chặn xóa nếu workout đã được dùng trong plan/session
             var mapRepo = _uow.GetRepository<WorkoutSessionExercise>();
             var used = await mapRepo.Entities.AnyAsync(x => x.WorkoutId == workoutId);
             if (used)
-                throw new ExceptionHandler("Cannot delete this Workout because it is used in WorkoutPlans.");
+                throw new Exception("Cannot delete this Workout because it is used in WorkoutPlans.");
 
             repo.Delete(w);
             await _uow.SaveAsync();
