@@ -1,5 +1,4 @@
-﻿using FitupProject.BLL.Commons.Exceptions;
-using FitupProject.BLL.DTOs.WorkoutPlans;
+﻿using FitupProject.BLL.DTOs.WorkoutPlans;
 using FitupProject.BLL.Interfaces;
 using FitupProject.Core.Commons.Enums;
 using FitupProject.Core.Entities;
@@ -19,7 +18,7 @@ namespace FitupProject.BLL.Services
             var onboarding = await onboardRepo.Entities
                 .FirstOrDefaultAsync(x => x.Id == onboardingProfileId && x.AccountId == accountId);
 
-            if (onboarding == null) throw new ExceptionHandler("OnboardingProfile not found.");
+            if (onboarding == null) throw new Exception("OnboardingProfile not found.");
 
             int weeks = Math.Clamp(onboarding.Weeks, 4, 12);
             int days = Math.Clamp(onboarding.DaysPerWeek, 3, 6);
@@ -43,7 +42,7 @@ namespace FitupProject.BLL.Services
                 .ToListAsync();
 
             if (candidates.Count < 20)
-                throw new ExceptionHandler("Not enough workouts for selected equipment/level. Add more workouts.");
+                throw new Exception("Not enough workouts for selected equipment/level. Add more workouts.");
 
             // index tags
             var tagIndex = candidates.ToDictionary(
@@ -295,7 +294,7 @@ namespace FitupProject.BLL.Services
                             .ThenInclude(e => e.Workout)
                 .FirstOrDefaultAsync();
 
-            if (plan == null) throw new ExceptionHandler("WorkoutPlan not found.");
+            if (plan == null) throw new Exception("WorkoutPlan not found.");
 
             return new
             {
@@ -346,14 +345,14 @@ namespace FitupProject.BLL.Services
         public async Task DeletePlanAsync(string planId, string accountId)
         {
             if (string.IsNullOrWhiteSpace(planId))
-                throw new ExceptionHandler("PlanId is required.");
+                throw new Exception("PlanId is required.");
 
             var planRepo = _uow.GetRepository<WorkoutPlan>();
             var plan = await planRepo.Entities
                 .FirstOrDefaultAsync(p => p.Id == planId && p.AccountId == accountId);
 
             if (plan == null)
-                throw new ExceptionHandler("WorkoutPlan not found.");
+                throw new Exception("WorkoutPlan not found.");
 
             var scheduleRepo = _uow.GetRepository<WorkoutSchedule>();
             var scheduleIds = await scheduleRepo.Entities
@@ -447,7 +446,7 @@ namespace FitupProject.BLL.Services
                 })
                 .FirstOrDefaultAsync();
 
-            if (data == null) throw new ExceptionHandler("WorkoutPlan not found.");
+            if (data == null) throw new Exception("WorkoutPlan not found.");
             return data;
         }
 
@@ -462,12 +461,12 @@ namespace FitupProject.BLL.Services
                 .FirstOrDefaultAsync();
 
             if (string.IsNullOrWhiteSpace(scheduleId))
-                throw new ExceptionHandler("WorkoutSchedule (week) not found.");
+                throw new Exception("WorkoutSchedule (week) not found.");
 
             // check plan ownership
             var planRepo = _uow.GetRepository<WorkoutPlan>();
             var ok = await planRepo.Entities.AnyAsync(p => p.Id == planId && p.AccountId == accountId);
-            if (!ok) throw new ExceptionHandler("WorkoutPlan not found.");
+            if (!ok) throw new Exception("WorkoutPlan not found.");
 
             var sessionRepo = _uow.GetRepository<WorkoutSession>();
 
@@ -490,7 +489,7 @@ namespace FitupProject.BLL.Services
             // verify plan belongs to account
             var planRepo = _uow.GetRepository<WorkoutPlan>();
             var ok = await planRepo.Entities.AnyAsync(p => p.Id == planId && p.AccountId == accountId);
-            if (!ok) throw new ExceptionHandler("WorkoutPlan not found.");
+            if (!ok) throw new Exception("WorkoutPlan not found.");
 
             // find scheduleId by planId + weekNumber
             var scheduleRepo = _uow.GetRepository<WorkoutSchedule>();
@@ -500,7 +499,7 @@ namespace FitupProject.BLL.Services
                 .FirstOrDefaultAsync();
 
             if (string.IsNullOrWhiteSpace(scheduleId))
-                throw new ExceptionHandler("WorkoutSchedule (week) not found.");
+                throw new Exception("WorkoutSchedule (week) not found.");
 
             // load that day (with exercises + workout)
             var sessionRepo = _uow.GetRepository<WorkoutSession>();
@@ -511,7 +510,7 @@ namespace FitupProject.BLL.Services
                     .ThenInclude(e => e.Workout)
                 .FirstOrDefaultAsync();
 
-            if (session == null) throw new ExceptionHandler("WorkoutSession (day) not found.");
+            if (session == null) throw new Exception("WorkoutSession (day) not found.");
 
             return new WorkoutSessionDetailDto
             {

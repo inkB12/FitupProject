@@ -6,6 +6,7 @@ using FitupProject.BLL.Services;
 using FitupProject.DAL.Database;
 using FitupProject.DAL.Interfaces;
 using FitupProject.DAL.Repositories;
+using FitupProject.Filters;
 using FitupProject.Middlewares;
 using FitupProject.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -95,6 +96,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             }
         };
     });
+
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<ApiResponseWrapperFilter>();
+});
 builder.Services.AddAuthorization();
 builder.Services.AddHttpClient();
 
@@ -115,7 +121,7 @@ builder.Services.AddScoped<IOnboardingService, OnboardingService>();
 builder.Services.AddScoped<IWorkoutPlanService, WorkoutPlanService>();
 
 //Middleware
-builder.Services.AddTransient<ExceptionMiddleware>();
+//builder.Services.AddTransient<ExceptionMiddleware>();
 
 var app = builder.Build();
 
