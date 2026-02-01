@@ -3,6 +3,7 @@ using System;
 using FitupProject.DAL.Database;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FitupProject.DAL.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260130110815_AddFullDB")]
+    partial class AddFullDB
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -415,12 +418,6 @@ namespace FitupProject.DAL.Migrations
                     b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
-                    b.Property<DateTimeOffset?>("ExpiredAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset?>("PaidAt")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text");
@@ -431,29 +428,11 @@ namespace FitupProject.DAL.Migrations
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("text");
 
-                    b.Property<string>("VnpBankCode")
-                        .HasColumnType("text");
-
-                    b.Property<string>("VnpResponseCode")
-                        .HasColumnType("text");
-
-                    b.Property<string>("VnpTransactionNo")
-                        .HasColumnType("text");
-
-                    b.Property<string>("VnpTransactionStatus")
-                        .HasColumnType("text");
-
-                    b.Property<string>("VnpTxnRef")
-                        .HasColumnType("text");
-
                     b.HasKey("Id");
 
                     b.HasIndex("AccountId");
 
                     b.HasIndex("ConversionRateId");
-
-                    b.HasIndex("VnpTxnRef")
-                        .IsUnique();
 
                     b.ToTable("Payments");
                 });
