@@ -23,6 +23,8 @@ namespace FitupProject.Core.Entities
         public string? VnpTransactionStatus { get; set; } // vnp_TransactionStatus
         public string? VnpBankCode { get; set; }
         public DateTimeOffset? PaidAt { get; set; }
+        public DateTimeOffset? ExpiredAt { get; set; }
+
 
         public Account? Account { get; set; }
         public ConversionRate? ConversionRate { get; set; }

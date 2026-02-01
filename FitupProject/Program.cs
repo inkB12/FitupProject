@@ -1,5 +1,4 @@
-﻿using System.Text;
-using System.Text.Json;
+﻿using FitupProject.BackgroundJobs;
 using FitupProject.BLL.Commons.Securities;
 using FitupProject.BLL.Commons.VNPay;
 using FitupProject.BLL.Interfaces;
@@ -14,6 +13,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Text;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -108,6 +109,9 @@ builder.Services.AddHttpClient();
 //---- DI Uow + IGenericRepository
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+
+//---- DI Background Jobs
+builder.Services.AddHostedService<PaymentExpiryHostedService>();
 
 //---- DI Services
 builder.Services.AddScoped<IAuthService, AuthService>();

@@ -38,7 +38,8 @@ namespace FitupProject.BLL.Services
                 ConversionRateId = dto.ConversionRateId,
                 Amount = dto.AmountVnd,
                 Status = PaymentStatus.Pending,
-                VnpTxnRef = Guid.NewGuid().ToString("N") // unique per day ok (alphanumeric) :contentReference[oaicite:7]{index=7}
+                VnpTxnRef = Guid.NewGuid().ToString("N"), // unique per day ok (alphanumeric) :contentReference[oaicite:7]{index=7}
+                ExpiredAt = DateTimeOffset.UtcNow.AddMinutes(_opt.ExpireMinutes)
             };
 
             await payRepo.AddAsync(payment);
@@ -47,7 +48,7 @@ namespace FitupProject.BLL.Services
             var orderInfo = $"Nap point FitUp payment {payment.Id}";
             var payUrl = VnPayLibrary.CreatePaymentUrl(
                 _opt,
-                txnRef: payment.VnpTxnRef!,  // dùng TxnRef riêng; cũng có thể dùng payment.Id
+                txnRef: payment.VnpTxnRef!,
                 amountVnd: payment.Amount,
                 orderInfo: orderInfo,
                 ipAddress: ipAddress,
@@ -80,7 +81,7 @@ namespace FitupProject.BLL.Services
             if (payment == null) return ("01", "Order not found"); // :contentReference[oaicite:11]{index=11}
 
             // idempotent
-            if (payment.Status == PaymentStatus.Success)
+            if (payment.Status != PaymentStatus.Pending)
                 return ("02", "Order already confirmed"); // :contentReference[oaicite:12]{index=12}
 
             if (payment.Amount != amountVnd)
@@ -114,7 +115,10 @@ namespace FitupProject.BLL.Services
             }
             else
             {
-                payment.Status = PaymentStatus.Failed;
+                if (vnpResponseCode == "24")
+                    payment.Status = PaymentStatus.Cancelled;
+                else
+                    payment.Status = PaymentStatus.Failed;
             }
 
             payRepo.Update(payment);
