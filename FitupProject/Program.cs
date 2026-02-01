@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using System.Text.Json;
 using FitupProject.BLL.Commons.Securities;
+using FitupProject.BLL.Commons.VNPay;
 using FitupProject.BLL.Interfaces;
 using FitupProject.BLL.Services;
 using FitupProject.DAL.Database;
@@ -119,6 +120,12 @@ builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 builder.Services.AddScoped<IWorkoutCatalogService, WorkoutCatalogService>();
 builder.Services.AddScoped<IOnboardingService, OnboardingService>();
 builder.Services.AddScoped<IWorkoutPlanService, WorkoutPlanService>();
+
+//---- DI VNPAY + Conversion
+builder.Services.Configure<VnPayOptions>(builder.Configuration.GetSection("VnPay"));
+builder.Services.AddScoped<ITopUpService, TopUpService>();
+builder.Services.AddScoped<IConversionRateService, ConversionRateService>();
+
 
 //Middleware
 //builder.Services.AddTransient<ExceptionMiddleware>();
