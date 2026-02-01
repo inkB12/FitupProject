@@ -1,6 +1,6 @@
-﻿using System.Text;
-using System.Text.Json;
+﻿using FitupProject.BackgroundJobs;
 using FitupProject.BLL.Commons.Securities;
+using FitupProject.BLL.Commons.VNPay;
 using FitupProject.BLL.Interfaces;
 using FitupProject.BLL.Services;
 using FitupProject.DAL.Database;
@@ -13,6 +13,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Text;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -108,6 +110,9 @@ builder.Services.AddHttpClient();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 
+//---- DI Background Jobs
+builder.Services.AddHostedService<PaymentExpiryHostedService>();
+
 //---- DI Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 //builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
@@ -119,6 +124,12 @@ builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 builder.Services.AddScoped<IWorkoutCatalogService, WorkoutCatalogService>();
 builder.Services.AddScoped<IOnboardingService, OnboardingService>();
 builder.Services.AddScoped<IWorkoutPlanService, WorkoutPlanService>();
+
+//---- DI VNPAY + Conversion
+builder.Services.Configure<VnPayOptions>(builder.Configuration.GetSection("VnPay"));
+builder.Services.AddScoped<ITopUpService, TopUpService>();
+builder.Services.AddScoped<IConversionRateService, ConversionRateService>();
+
 
 //Middleware
 //builder.Services.AddTransient<ExceptionMiddleware>();
