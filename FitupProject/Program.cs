@@ -1,4 +1,4 @@
-﻿using FitupProject.BackgroundJobs;
+using FitupProject.BackgroundJobs;
 using FitupProject.BLL.Commons.Securities;
 using FitupProject.BLL.Commons.VNPay;
 using FitupProject.BLL.Interfaces;
@@ -119,6 +119,8 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEmailSender, ResendEmailSender>();
 builder.Services.AddHostedService<PendingAccountCleanupService>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+builder.Services.AddScoped<IPTService, PTService>();
+builder.Services.AddScoped<ISlotService, SlotService>();
 
 //---- DI Workout flow
 builder.Services.AddScoped<IWorkoutCatalogService, WorkoutCatalogService>();
