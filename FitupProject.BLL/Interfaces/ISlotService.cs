@@ -13,5 +13,7 @@ namespace FitupProject.BLL.Interfaces
         Task<IEnumerable<SlotForBookingResponse>> GetWeeklyCalendarAsync(string ptId, DateOnly startDate);
         
         Task CancelSlotForBookingAsync(string slotForBookingId, string ptId);
+
+        Task UpdateSlotAsync(string slotId, UpdateSlotRequest request);
     }
 }

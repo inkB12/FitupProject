@@ -103,5 +103,24 @@ namespace FitupProject.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateSlot(string id, [FromBody] UpdateSlotRequest request)
+        {
+            var ptId = GetPTId();
+            if (string.IsNullOrEmpty(ptId)) return Unauthorized();
+
+            request.PTId = ptId;
+
+            try
+            {
+                await _slotService.UpdateSlotAsync(id, request);
+                return Ok(new { message = "Cập nhật lịch mẫu và các lịch rảnh tương ứng thành công." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }

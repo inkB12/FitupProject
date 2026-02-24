@@ -33,4 +33,14 @@ namespace FitupProject.BLL.DTOs.Slots
         public decimal Price { get; set; }
         public string Status { get; set; } = string.Empty;
     }
+
+    public class UpdateSlotRequest
+    {
+        [JsonIgnore]
+        public string PTId { get; set; } = string.Empty;
+        public TimeOnly SlotStart { get; set; }
+        public TimeOnly SlotEnd { get; set; }
+        public DayOfWeek DateInWeek { get; set; }
+        public decimal Price { get; set; }
+    }
 }

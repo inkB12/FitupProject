@@ -57,7 +57,7 @@ namespace FitupProject.BLL.Services
 
             var sfbRepo = _uow.GetRepository<SlotForBooking>();
             var today = DateOnly.FromDateTime(DateTime.UtcNow);
-            
+
             int daysUntilNextDay = ((int)slot.DateInWeek - (int)today.DayOfWeek + 7) % 7;
             var firstDate = today.AddDays(daysUntilNextDay);
 
@@ -109,11 +109,11 @@ namespace FitupProject.BLL.Services
 
             var slotRepo = _uow.GetRepository<Slot>();
             var slot = await slotRepo.Entities.FirstOrDefaultAsync(s => s.Id == slotId && s.PTId == actualPTId);
-            
+
             if (slot == null) throw new Exception("Không tìm thấy slot.");
 
             slot.Status = SlotStatus.Inactive;
-            
+
             var sfbRepo = _uow.GetRepository<SlotForBooking>();
             var futureSfbs = await sfbRepo.Entities
                 .Where(x => x.SlotId == slotId && x.BookingDate >= DateOnly.FromDateTime(DateTime.UtcNow) && x.Status == SlotForBookingStatus.Available)
@@ -164,13 +164,76 @@ namespace FitupProject.BLL.Services
                 .FirstOrDefaultAsync(x => x.Id == slotForBookingId && x.Slot!.PTId == actualPTId);
 
             if (sfb == null) throw new Exception("Không tìm thấy lịch hẹn.");
-            
+
             if (sfb.Status == SlotForBookingStatus.Booked)
             {
                 throw new Exception("Lịch này đã được đặt, không thể hủy trực tiếp. Vui lòng liên hệ bộ phận hỗ trợ.");
             }
 
             sfb.Status = SlotForBookingStatus.Cancelled;
+            await _uow.SaveAsync();
+        }
+
+        public async Task UpdateSlotAsync(string slotId, UpdateSlotRequest request)
+        {
+            var ptRepo = _uow.GetRepository<PT>();
+            var pt = await ptRepo.Entities.FirstOrDefaultAsync(p => p.AccountId == request.PTId);
+
+            if (pt == null)
+            {
+                throw new Exception("Tài khoản của bạn chưa được đăng ký làm PT hoặc không tồn tại.");
+            }
+
+            var actualPTId = pt.Id;
+
+            var slotRepo = _uow.GetRepository<Slot>();
+            var slot = await slotRepo.Entities.FirstOrDefaultAsync(s => s.Id == slotId && s.PTId == actualPTId);
+
+            if (slot == null)
+            {
+                throw new Exception("Không tìm thấy slot hoặc bạn không có quyền chỉnh sửa slot này.");
+            }
+
+            // Kiểm tra trùng lặp giờ nếu có thay đổi thời gian hoặc thứ
+            if (slot.SlotStart != request.SlotStart || slot.SlotEnd != request.SlotEnd || slot.DateInWeek != request.DateInWeek)
+            {
+                var existingSlots = await slotRepo.Entities
+                    .Where(s => s.PTId == actualPTId && s.DateInWeek == request.DateInWeek && s.Status == SlotStatus.Active && s.Id != slotId)
+                    .ToListAsync();
+
+                bool isOverlap = existingSlots.Any(s =>
+                    (request.SlotStart >= s.SlotStart && request.SlotStart < s.SlotEnd) ||
+                    (request.SlotEnd > s.SlotStart && request.SlotEnd <= s.SlotEnd) ||
+                    (request.SlotStart <= s.SlotStart && request.SlotEnd >= s.SlotEnd)
+                );
+
+                if (isOverlap)
+                    throw new Exception("Khung giờ cập nhật bị trùng với một lịch khác của bạn.");
+            }
+
+            // Cập nhật thông tin slot mẫu
+            slot.SlotStart = request.SlotStart;
+            slot.SlotEnd = request.SlotEnd;
+            slot.DateInWeek = request.DateInWeek;
+            slot.Price = request.Price;
+
+            // Cập nhật các SlotForBooking trong tương lai chưa được đặt (Status == Available)
+            var sfbRepo = _uow.GetRepository<SlotForBooking>();
+            var futureSfbs = await sfbRepo.Entities
+                .Where(x => x.SlotId == slotId && x.BookingDate >= DateOnly.FromDateTime(DateTime.UtcNow) && x.Status == SlotForBookingStatus.Available)
+                .ToListAsync();
+
+            foreach (var sfb in futureSfbs)
+            {
+                // Nếu đổi thứ, tính lại BookingDate
+                if (slot.DateInWeek != request.DateInWeek)
+                {
+                    int daysDiff = (int)request.DateInWeek - (int)sfb.BookingDate.DayOfWeek;
+                    sfb.BookingDate = sfb.BookingDate.AddDays(daysDiff);
+                }
+                sfb.Price = request.Price;
+            }
+
             await _uow.SaveAsync();
         }
     }
