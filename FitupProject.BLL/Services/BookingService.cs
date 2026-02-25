@@ -115,5 +115,37 @@ namespace FitupProject.BLL.Services
                 PTName = b.SlotForBooking.Slot.PT?.DisplayName ?? "N/A"
             });
         }
+
+        public async Task SendFeedbackAsync(SendFeedbackRequest request, string accountId)
+        {
+            var bookingRepo = _uow.GetRepository<Booking>();
+            var reviewRepo = _uow.GetRepository<BookingReview>();
+
+            var booking = await bookingRepo.Entities
+                .FirstOrDefaultAsync(b => b.Id == request.BookingId && b.AccountId == accountId);
+
+            if (booking == null)
+                throw new Exception("Không tìm thấy thông tin buổi tập.");
+
+            if (booking.Status != BookingStatus.Completed)
+            {
+                throw new Exception("Bạn chỉ có thể đánh giá sau khi buổi tập đã kết thúc và được xác nhận hoàn thành.");
+            }
+
+            var isReviewed = await reviewRepo.Entities.AnyAsync(r => r.BookingId == request.BookingId);
+            if (isReviewed)
+                throw new Exception("Bạn đã gửi đánh giá cho buổi tập này rồi.");
+
+            var review = new BookingReview
+            {
+                Id = Guid.NewGuid().ToString(),
+                BookingId = request.BookingId,
+                Rating = request.Rating,
+                Comment = request.Comment
+            };
+
+            await reviewRepo.AddAsync(review);
+            await _uow.SaveAsync();
+        }
     }
 }

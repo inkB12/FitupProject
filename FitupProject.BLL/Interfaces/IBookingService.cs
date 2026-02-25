@@ -12,5 +12,6 @@ namespace FitupProject.BLL.Interfaces
         Task<string> BookSlotAsync(CreateBookingRequest request,string userId);
         Task<IEnumerable<BookingResponse>> GetBookingsForUserAsync(string userId);
         Task CancelBookingAsync(string bookingId, string accountId);
+        Task SendFeedbackAsync(SendFeedbackRequest request, string userId);
     }
 }

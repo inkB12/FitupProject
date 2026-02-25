@@ -81,5 +81,25 @@ namespace FitupProject.Controllers
                 return BadRequest(new { success = false, message = ex.Message });
             }
         }
+
+        [HttpPost("feedback")]
+        [Authorize]
+        public async Task<IActionResult> SendFeedback([FromBody] SendFeedbackRequest request)
+        {
+            var accountId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                            ?? User.FindFirstValue("sub");
+
+            if (string.IsNullOrEmpty(accountId)) return Unauthorized();
+
+            try
+            {
+                await _bookingService.SendFeedbackAsync(request, accountId);
+                return Ok(new { success = true, message = "Cảm ơn bạn đã gửi đánh giá cho PT!" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
     }
 }
