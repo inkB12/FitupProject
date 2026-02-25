@@ -194,7 +194,6 @@ namespace FitupProject.BLL.Services
                 throw new Exception("Không tìm thấy slot hoặc bạn không có quyền chỉnh sửa slot này.");
             }
 
-            // Kiểm tra trùng lặp giờ nếu có thay đổi thời gian hoặc thứ
             if (slot.SlotStart != request.SlotStart || slot.SlotEnd != request.SlotEnd || slot.DateInWeek != request.DateInWeek)
             {
                 var existingSlots = await slotRepo.Entities
@@ -236,7 +235,6 @@ namespace FitupProject.BLL.Services
 
         public async Task<IEnumerable<SlotForBookingResponse>> GetAvailableSlotsForClientAsync(string ptId, DateOnly startDate, DateOnly endDate)
         {
-            // 1. Tìm thông tin PT từ AccountId
             var ptRepo = _uow.GetRepository<PT>();
             var pt = await ptRepo.Entities.FirstOrDefaultAsync(p => p.Id == ptId);
 
@@ -248,19 +246,16 @@ namespace FitupProject.BLL.Services
             var actualPTId = pt.Id;
             var sfbRepo = _uow.GetRepository<SlotForBooking>();
 
-            // 2. Lấy thời gian hiện tại để lọc bỏ các slot đã trôi qua trong ngày hôm nay
-            // Giả định hệ thống chạy múi giờ Việt Nam (UTC+7)
             var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
             var currentTime = TimeOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
 
-            // 3. Truy vấn dữ liệu từ database
             var availableSlots = await sfbRepo.Entities
                 .Include(x => x.Slot)
                 .Where(x => x.Slot!.PTId == actualPTId
                          && x.BookingDate >= startDate
                          && x.BookingDate <= endDate
-                         && x.Status == SlotForBookingStatus.Available // Chỉ lấy slot rảnh
-                         && x.Slot.Status == SlotStatus.Active)       // Slot gốc vẫn còn hiệu lực
+                         && x.Status == SlotForBookingStatus.Available
+                         && x.Slot.Status == SlotStatus.Active)      
                 .OrderBy(x => x.BookingDate)
                 .ThenBy(x => x.Slot!.SlotStart)
                 .Select(x => new SlotForBookingResponse
@@ -273,9 +268,6 @@ namespace FitupProject.BLL.Services
                     Status = x.Status.ToString()
                 })
                 .ToListAsync();
-
-            // 4. Lọc bỏ các slot rảnh nhưng giờ bắt đầu đã trôi qua (đối với ngày hôm nay)
-            // Ví dụ: Bây giờ là 15:00, khách không thể đặt slot 14:00 hôm nay dù nó vẫn đang "Available"
             var result = availableSlots
                 .Where(x => !(x.BookingDate == today && x.StartTime <= currentTime))
                 .ToList();

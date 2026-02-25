@@ -124,8 +124,10 @@ builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 builder.Services.AddScoped<IWorkoutCatalogService, WorkoutCatalogService>();
 builder.Services.AddScoped<IOnboardingService, OnboardingService>();
 builder.Services.AddScoped<IWorkoutPlanService, WorkoutPlanService>();
+//---- DI Slot
 builder.Services.AddScoped<ISlotService, SlotService>();
-
+// ---- DI Booking
+builder.Services.AddScoped<IBookingService, BookingService>();
 //---- DI VNPAY + Conversion
 builder.Services.Configure<VnPayOptions>(builder.Configuration.GetSection("VnPay"));
 builder.Services.AddScoped<ITopUpService, TopUpService>();
