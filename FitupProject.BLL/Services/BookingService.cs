@@ -24,6 +24,7 @@ namespace FitupProject.BLL.Services
         {
             var sfbRepo = _uow.GetRepository<SlotForBooking>();
             var bookingRepo = _uow.GetRepository<Booking>();
+            var accountRepo = _uow.GetRepository<Account>();
 
             var sfb = await sfbRepo.Entities
                 .Include(x => x.Slot)
@@ -33,6 +34,16 @@ namespace FitupProject.BLL.Services
             if (sfb.Status != SlotForBookingStatus.Available)
                 throw new Exception("Khung giờ này đã có người khác đặt.");
 
+            var account = await accountRepo.GetByIdAsync(userId);
+            if (account == null) throw new Exception("Tài khoản không tồn tại.");
+
+            if (account.PointAmount < sfb.Price)
+            {
+                throw new Exception($"Số dư không đủ. Bạn cần thêm {sfb.Price - account.PointAmount} điểm để đặt lịch.");
+            }
+
+            account.PointAmount -= sfb.Price; 
+
             var booking = new Booking
             {
                 Id = Guid.NewGuid().ToString(),
@@ -40,7 +51,7 @@ namespace FitupProject.BLL.Services
                 AccountId = userId,
                 Note = request.Note,
                 Total = sfb.Price,
-                Status = BookingStatus.Pending 
+                Status = BookingStatus.Confirmed, 
             };
 
             sfb.Status = SlotForBookingStatus.Booked;
