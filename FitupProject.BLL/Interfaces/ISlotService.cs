@@ -15,5 +15,6 @@ namespace FitupProject.BLL.Interfaces
         Task CancelSlotForBookingAsync(string slotForBookingId, string ptId);
 
         Task UpdateSlotAsync(string slotId, UpdateSlotRequest request);
+        Task <IEnumerable<SlotForBookingResponse>> GetAvailableSlotsForClientAsync(string ptId, DateOnly startDate, DateOnly endDate);
     }
 }

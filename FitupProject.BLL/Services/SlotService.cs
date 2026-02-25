@@ -211,13 +211,11 @@ namespace FitupProject.BLL.Services
                     throw new Exception("Khung giờ cập nhật bị trùng với một lịch khác của bạn.");
             }
 
-            // Cập nhật thông tin slot mẫu
             slot.SlotStart = request.SlotStart;
             slot.SlotEnd = request.SlotEnd;
             slot.DateInWeek = request.DateInWeek;
             slot.Price = request.Price;
 
-            // Cập nhật các SlotForBooking trong tương lai chưa được đặt (Status == Available)
             var sfbRepo = _uow.GetRepository<SlotForBooking>();
             var futureSfbs = await sfbRepo.Entities
                 .Where(x => x.SlotId == slotId && x.BookingDate >= DateOnly.FromDateTime(DateTime.UtcNow) && x.Status == SlotForBookingStatus.Available)
@@ -225,7 +223,6 @@ namespace FitupProject.BLL.Services
 
             foreach (var sfb in futureSfbs)
             {
-                // Nếu đổi thứ, tính lại BookingDate
                 if (slot.DateInWeek != request.DateInWeek)
                 {
                     int daysDiff = (int)request.DateInWeek - (int)sfb.BookingDate.DayOfWeek;
@@ -235,6 +232,55 @@ namespace FitupProject.BLL.Services
             }
 
             await _uow.SaveAsync();
+        }
+
+        public async Task<IEnumerable<SlotForBookingResponse>> GetAvailableSlotsForClientAsync(string ptId, DateOnly startDate, DateOnly endDate)
+        {
+            // 1. Tìm thông tin PT từ AccountId
+            var ptRepo = _uow.GetRepository<PT>();
+            var pt = await ptRepo.Entities.FirstOrDefaultAsync(p => p.Id == ptId);
+
+            if (pt == null)
+            {
+                throw new Exception("Thông tin huấn luyện viên không tồn tại trong hệ thống.");
+            }
+
+            var actualPTId = pt.Id;
+            var sfbRepo = _uow.GetRepository<SlotForBooking>();
+
+            // 2. Lấy thời gian hiện tại để lọc bỏ các slot đã trôi qua trong ngày hôm nay
+            // Giả định hệ thống chạy múi giờ Việt Nam (UTC+7)
+            var today = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+            var currentTime = TimeOnly.FromDateTime(DateTime.UtcNow.AddHours(7));
+
+            // 3. Truy vấn dữ liệu từ database
+            var availableSlots = await sfbRepo.Entities
+                .Include(x => x.Slot)
+                .Where(x => x.Slot!.PTId == actualPTId
+                         && x.BookingDate >= startDate
+                         && x.BookingDate <= endDate
+                         && x.Status == SlotForBookingStatus.Available // Chỉ lấy slot rảnh
+                         && x.Slot.Status == SlotStatus.Active)       // Slot gốc vẫn còn hiệu lực
+                .OrderBy(x => x.BookingDate)
+                .ThenBy(x => x.Slot!.SlotStart)
+                .Select(x => new SlotForBookingResponse
+                {
+                    Id = x.Id,
+                    BookingDate = x.BookingDate,
+                    StartTime = x.Slot!.SlotStart,
+                    EndTime = x.Slot!.SlotEnd,
+                    Price = x.Price,
+                    Status = x.Status.ToString()
+                })
+                .ToListAsync();
+
+            // 4. Lọc bỏ các slot rảnh nhưng giờ bắt đầu đã trôi qua (đối với ngày hôm nay)
+            // Ví dụ: Bây giờ là 15:00, khách không thể đặt slot 14:00 hôm nay dù nó vẫn đang "Available"
+            var result = availableSlots
+                .Where(x => !(x.BookingDate == today && x.StartTime <= currentTime))
+                .ToList();
+
+            return result;
         }
     }
 }
