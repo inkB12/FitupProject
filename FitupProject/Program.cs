@@ -121,7 +121,7 @@ builder.Services.AddScoped<IEmailSender, ResendEmailSender>();
 builder.Services.AddHostedService<PendingAccountCleanupService>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 builder.Services.AddScoped<IPTService, PTService>();
-builder.Services.AddScoped<ISlotService, SlotService>();
+//builder.Services.AddScoped<ISlotService, SlotService>();
 
 //---- DI Account
 builder.Services.AddScoped<IAccountService, AccountService>();
