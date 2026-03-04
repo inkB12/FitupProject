@@ -20,7 +20,7 @@ namespace FitupProject.Controllers
 
 
         [HttpPost("book")]
-        [Authorize] 
+        [Authorize]
         public async Task<IActionResult> BookSlot([FromBody] CreateBookingRequest request)
         {
             var userIdFromToken = User.FindFirstValue(ClaimTypes.NameIdentifier)
@@ -31,11 +31,11 @@ namespace FitupProject.Controllers
                 return Unauthorized(new { message = "Không tìm thấy thông tin người dùng trong token." });
             }
 
-           
+
 
             try
             {
-                var bookingId = await _bookingService.BookSlotAsync(request,userIdFromToken);
+                var bookingId = await _bookingService.BookSlotAsync(request, userIdFromToken);
                 return Ok(new { success = true, bookingId });
             }
             catch (Exception ex)
@@ -100,6 +100,27 @@ namespace FitupProject.Controllers
             {
                 return BadRequest(new { success = false, message = ex.Message });
             }
+        }
+        [HttpGet("admin/bookings")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetBookingsForAdmin([FromQuery] GetBookingPagingRequest request)
+        {
+            try
+            {
+                var data = await _bookingService.GetBookingsForAdminAsync(request);
+                return Ok(new { success = true, data });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+        [HttpPatch("{bookingId}/force-cancel")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> ForceCancel(string bookingId)
+        {
+            var result = await _bookingService.ForceCancelBookingAsync(bookingId);
+            return Ok(new { status = 200, msg = "Force Cancel thành công.", data = result });
         }
     }
 }

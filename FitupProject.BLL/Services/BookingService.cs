@@ -66,9 +66,11 @@ namespace FitupProject.BLL.Services
         {
             var bookingRepo = _uow.GetRepository<Booking>();
             var sfbRepo = _uow.GetRepository<SlotForBooking>();
+            var accountRepo = _uow.GetRepository<Account>();
 
             var booking = await bookingRepo.Entities
                 .Include(b => b.SlotForBooking)
+                 .Include(b => b.SlotForBooking)
                     .ThenInclude(sfb => sfb.Slot)
                 .FirstOrDefaultAsync(b => b.Id == bookingId && b.AccountId == accountId);
 
@@ -94,9 +96,101 @@ namespace FitupProject.BLL.Services
             {
                 sfb.Status = SlotForBookingStatus.Available;
             }
+            var refundPoint = booking.Total;
 
+            if (refundPoint > 0)
+            {
+                var account = await accountRepo.Entities
+                    .FirstOrDefaultAsync(a => a.Id == booking.AccountId);
+
+                if (account == null)
+                    throw new KeyNotFoundException("Account không tồn tại.");
+
+                account.PointAmount += refundPoint;
+               
+                await accountRepo.UpdateAsync(account);
+            }
+           
             await _uow.SaveAsync();
         }
+
+    
+        public async Task<bool> ForceCancelBookingAsync(string bookingId)
+        {
+            var bookingRepo = _uow.GetRepository<Booking>();
+            var accountRepo = _uow.GetRepository<Account>();
+            var bookingPaymentRepo = _uow.GetRepository<BookingPayment>();
+
+            var booking = await bookingRepo.Entities
+                .Include(b => b.Account)
+                .Include(b => b.SlotForBooking)
+                .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+            if (booking == null)
+                throw new KeyNotFoundException("Booking không tồn tại.");
+           
+            if (booking.Status != BookingStatus.Confirmed)
+                throw new InvalidOperationException("Chỉ có thể Force Cancel booking ở trạng thái Confirmed.");
+
+            var refundPoint = booking.Total;
+
+            if (refundPoint > 0)
+            {
+                var account = await accountRepo.Entities
+                    .FirstOrDefaultAsync(a => a.Id == booking.AccountId);
+
+                if (account == null)
+                    throw new KeyNotFoundException("Account không tồn tại.");
+
+                account.PointAmount += refundPoint;
+                await accountRepo.UpdateAsync(account);
+            }
+
+            booking.Status = BookingStatus.Cancelled;
+            if (booking.SlotForBooking != null)
+                booking.SlotForBooking.Status = SlotForBookingStatus.Available;
+           
+            await _uow.SaveAsync();
+
+            return true;
+        }
+
+        public async Task<IEnumerable<BookingResponse>> GetBookingsForAdminAsync(GetBookingPagingRequest request)
+        {
+            var bookingRepo = _uow.GetRepository<Booking>();
+            var query = bookingRepo.Entities.AsQueryable();
+            if(request.Status.HasValue)
+            {
+                query = query.Where(b => b.Status == request.Status.Value);
+            }
+            if (!string.IsNullOrEmpty(request.FromDate) && DateTimeOffset.TryParse(request.FromDate, out var from))
+            {
+                query = query.Where(b => b.CreatedAt >= from.ToUniversalTime());
+            }
+
+            if (!string.IsNullOrEmpty(request.ToDate) && DateTimeOffset.TryParse(request.ToDate, out var to))
+            {
+                query = query.Where(b => b.CreatedAt < to.ToUniversalTime());
+            }
+            var pageIndex = request.PageIndex <= 0 ? 1 : request.PageIndex;
+            var pageSize = request.PageSize <= 0 ? 10 : request.PageSize;
+
+            query = query.Skip((pageIndex - 1) * pageSize).Take(pageSize);
+            var result = await query.Select(b => new BookingResponse
+            {
+                Id = b.Id,
+                SlotForBookingId = b.SlotForBookingId,
+                BookingDate = b.SlotForBooking!.BookingDate,
+                StartTime = b.SlotForBooking.Slot!.SlotStart,
+                EndTime = b.SlotForBooking.Slot.SlotEnd,
+                Total = b.Total,
+                Status = b.Status.ToString(),
+                Note = b.Note,
+                PTName = b.SlotForBooking.Slot.PT!.DisplayName
+                }).ToListAsync();
+            return result;
+        }
+        
 
         public async Task<IEnumerable<BookingResponse>> GetBookingsForUserAsync(string accountId)
         {
@@ -154,6 +248,9 @@ namespace FitupProject.BLL.Services
                 Rating = request.Rating,
                 Comment = request.Comment
             };
+
+            if (booking.SlotForBooking != null)
+                booking.SlotForBooking.Status = SlotForBookingStatus.Available;
 
             await reviewRepo.AddAsync(review);
             await _uow.SaveAsync();
