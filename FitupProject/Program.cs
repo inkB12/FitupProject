@@ -1,4 +1,5 @@
 using FitupProject.BackgroundJobs;
+using FitupProject.BLL.Commons;
 using FitupProject.BLL.Commons.Securities;
 using FitupProject.BLL.Commons.VNPay;
 using FitupProject.BLL.Interfaces;
@@ -83,18 +84,58 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         //json cho 401 + 403
         options.Events = new JwtBearerEvents
         {
-            OnChallenge = context =>
+            OnChallenge = async context =>
             {
                 context.HandleResponse();
-                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                context.Response.ContentType = "application/json";
-                return context.Response.WriteAsync(JsonSerializer.Serialize(new { message = "Unauthorized." }));
+
+                if (!context.Response.HasStarted)
+                {
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    context.Response.ContentType = "application/json";
+
+                    var payload = new ApiResponse<object?>
+                    {
+                        Status = 401,
+                        Msg = "Unauthorized.",
+                        Data = null
+                    };
+
+                    var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    });
+
+                    await context.Response.WriteAsync(json);
+                }
             },
-            OnForbidden = context =>
+
+            // 403
+            OnForbidden = async context =>
             {
-                context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                context.Response.ContentType = "application/json";
-                return context.Response.WriteAsync(JsonSerializer.Serialize(new { message = "Forbidden." }));
+                if (!context.Response.HasStarted)
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    context.Response.ContentType = "application/json";
+
+                    var payload = new ApiResponse<object?>
+                    {
+                        Status = 403,
+                        Msg = "Forbidden.",
+                        Data = null
+                    };
+
+                    var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    });
+
+                    await context.Response.WriteAsync(json);
+                }
+            },
+
+            OnAuthenticationFailed = context =>
+            {
+                return Task.CompletedTask;
             }
         };
     });

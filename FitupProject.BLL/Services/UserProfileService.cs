@@ -1,5 +1,4 @@
-﻿using FitupProject.BLL.Commons.Exceptions;
-using FitupProject.BLL.DTOs.UserProfile;
+﻿using FitupProject.BLL.DTOs.UserProfile;
 using FitupProject.BLL.Interfaces;
 using FitupProject.Core.Entities;
 using FitupProject.DAL.Interfaces;
@@ -20,21 +19,21 @@ namespace FitupProject.BLL.Services
         {
             if (string.IsNullOrWhiteSpace(req.AccountId))
             {
-                throw new ExceptionHandler("AccountId is required.");
+                throw new Exception("AccountId is required.");
             }
 
             var accountRepo = _uow.GetRepository<Account>();
             bool accountExist = await accountRepo.Entities.AnyAsync(x => x.Id == req.AccountId);
             if(!accountExist)
             {
-                throw new ExceptionHandler("AccountId does not exist.");
-            }
+                throw new Exception("AccountId does not exist.");
+            }   
 
             var userProfileRepo = _uow.GetRepository<UserProfile>();
             bool exist = await userProfileRepo.Entities.AnyAsync(x => x.AccountId == req.AccountId);
             if(exist)
             {
-                throw new ExceptionHandler("UserProfile for this AccountId already exists.");
+                throw new Exception("UserProfile for this AccountId already exists.");
             }
 
             UserProfile profile = new UserProfile
@@ -82,7 +81,7 @@ namespace FitupProject.BLL.Services
         public async Task<UserProfileResponse> GetUserProfileByIdAsync(string accountId)
         {
             if (string.IsNullOrWhiteSpace(accountId))
-                throw new ExceptionHandler("AccountId is required.");
+                throw new Exception("AccountId is required.");
 
             var repo = _uow.GetRepository<UserProfile>();
 
@@ -101,7 +100,7 @@ namespace FitupProject.BLL.Services
                 .FirstOrDefaultAsync();
 
             if (response == null)
-                throw new ExceptionHandler("UserProfile not found.");
+                throw new Exception("UserProfile not found.");
 
             return response;
         }
@@ -109,14 +108,14 @@ namespace FitupProject.BLL.Services
         public async Task UpdateUserProfileAsync(string accountId, UserProfileUpdateRequest req)
         {
             if (string.IsNullOrWhiteSpace(accountId))
-                throw new ExceptionHandler("AccountId is required.");
+                throw new Exception("AccountId is required.");
 
             var repo = _uow.GetRepository<UserProfile>();
 
             var profile = await repo.GetByIdAsync(accountId);
 
             if (profile == null)
-                throw new ExceptionHandler("UserProfile not found.");
+                throw new Exception("UserProfile not found.");
             if (req.FullName != null)
                 profile.FullName = req.FullName.Trim();
             if (req.Dob.HasValue)

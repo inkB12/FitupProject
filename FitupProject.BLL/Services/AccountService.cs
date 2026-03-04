@@ -1,14 +1,8 @@
-﻿using FitupProject.BLL.Commons.Exceptions;
-using FitupProject.BLL.DTOs.Accounts;
+﻿using FitupProject.BLL.DTOs.Accounts;
 using FitupProject.BLL.Interfaces;
 using FitupProject.Core.Entities;
 using FitupProject.DAL.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace FitupProject.BLL.Services
 {
@@ -24,17 +18,17 @@ namespace FitupProject.BLL.Services
         {
            if(string.IsNullOrWhiteSpace(req.Email))
             {
-                throw new ExceptionHandler("Email is required.");
+                throw new Exception("Email is required.");
             }
             if (string.IsNullOrWhiteSpace(req.Password))
             {
-                throw new ExceptionHandler("Password is required.");
+                throw new Exception("Password is required.");
             }
             var repo = _uow.GetRepository<Account>();
             var exists = await repo.Entities.AnyAsync(x => x.Email == req.Email);
             if (exists)
             {
-                throw new ExceptionHandler("Email already exists.");
+                throw new Exception("Email already exists.");
             }
             var acc = new Account
             {
@@ -56,13 +50,13 @@ namespace FitupProject.BLL.Services
         {
             if (string.IsNullOrWhiteSpace(id))
             {
-                throw new ExceptionHandler("AccountId is required.");
+                throw new Exception("AccountId is required.");
             }
             var repo = _uow.GetRepository<Account>();
             var acc = await repo.Entities.FirstOrDefaultAsync(x => x.Id == id);
             if (acc == null)
             {
-                throw new ExceptionHandler("Account not found.");
+                throw new Exception("Account not found.");
             }
             repo.Delete(acc);
             await _uow.SaveAsync();
@@ -72,7 +66,7 @@ namespace FitupProject.BLL.Services
         {
             if (string.IsNullOrWhiteSpace(id))
             {
-                throw new ExceptionHandler("AccountId is required.");
+                throw new Exception("AccountId is required.");
             }
             var repo = _uow.GetRepository<Account>();
             return await repo.Entities.FirstOrDefaultAsync(x => x.Id == id);
@@ -88,12 +82,12 @@ namespace FitupProject.BLL.Services
         public async Task UpdateAccountAsync(string id, AccountUpdateRequest req)
         {
             if (string.IsNullOrWhiteSpace(id))
-                throw new ExceptionHandler("AccountId is required.");
+                throw new Exception("AccountId is required.");
 
             var repo = _uow.GetRepository<Account>();
             var acc = await repo.Entities.FirstOrDefaultAsync(x => x.Id == id);
             if (acc == null)
-                throw new ExceptionHandler("Account not found.");
+                throw new Exception("Account not found.");
 
             if (req.Phone != null)
                 acc.Phone = req.Phone;
