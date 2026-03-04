@@ -1,17 +1,20 @@
-﻿using System.Text;
-using System.Text.Json;
+using FitupProject.BackgroundJobs;
 using FitupProject.BLL.Commons.Securities;
+using FitupProject.BLL.Commons.VNPay;
 using FitupProject.BLL.Interfaces;
 using FitupProject.BLL.Services;
 using FitupProject.DAL.Database;
 using FitupProject.DAL.Interfaces;
 using FitupProject.DAL.Repositories;
+using FitupProject.Filters;
 using FitupProject.Middlewares;
 using FitupProject.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Text;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -95,6 +98,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             }
         };
     });
+
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<ApiResponseWrapperFilter>();
+});
 builder.Services.AddAuthorization();
 builder.Services.AddHttpClient();
 
@@ -102,22 +110,41 @@ builder.Services.AddHttpClient();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 
+//---- DI Background Jobs
+builder.Services.AddHostedService<PaymentExpiryHostedService>();
+
 //---- DI Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 
+builder.Services.AddScoped<IAdminAccountService, AdminAccountService>();
 //builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<IEmailSender, ResendEmailSender>();
 builder.Services.AddHostedService<PendingAccountCleanupService>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+builder.Services.AddScoped<IPTService, PTService>();
+//builder.Services.AddScoped<ISlotService, SlotService>();
+
+//---- DI Account
+builder.Services.AddScoped<IAccountService, AccountService>();
 
 //---- DI Workout flow
 builder.Services.AddScoped<IWorkoutCatalogService, WorkoutCatalogService>();
 builder.Services.AddScoped<IOnboardingService, OnboardingService>();
 builder.Services.AddScoped<IWorkoutPlanService, WorkoutPlanService>();
+//---- DI Slot
+builder.Services.AddScoped<ISlotService, SlotService>();
+// ---- DI Booking
+builder.Services.AddScoped<IBookingService, BookingService>();
+//---- DI VNPAY + Conversion
+builder.Services.Configure<VnPayOptions>(builder.Configuration.GetSection("VnPay"));
+builder.Services.AddScoped<ITopUpService, TopUpService>();
+builder.Services.AddScoped<IConversionRateService, ConversionRateService>();
+// ---- DI DashBoard
+builder.Services.AddScoped<IDashBoardService, DashBoardService>();
 
 //Middleware
-builder.Services.AddTransient<ExceptionMiddleware>();
+//builder.Services.AddTransient<ExceptionMiddleware>();
 
 var app = builder.Build();
 

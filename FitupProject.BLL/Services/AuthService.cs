@@ -1,5 +1,4 @@
-﻿using FitupProject.BLL.Commons.Exceptions;
-using FitupProject.BLL.Commons.Helpers;
+﻿using FitupProject.BLL.Commons.Helpers;
 using FitupProject.BLL.Commons.Securities;
 using FitupProject.BLL.Interfaces;
 using FitupProject.Core.Commons.Constants;
@@ -38,7 +37,7 @@ namespace FitupProject.BLL.Services
             if (existing != null)
             {
                 if (existing.Status == AccountStatus.Active)
-                    throw new ExceptionHandler(MessageConstants.Auth.EmailAlreadyRegistered);
+                    throw new Exception(MessageConstants.Auth.EmailAlreadyRegistered);
 
                 await IssueAndSendOtpAsync(existing);
                 repo.Update(existing); // OK vì existing là record đã có
@@ -72,22 +71,22 @@ namespace FitupProject.BLL.Services
             var acc = await repo.Entities.FirstOrDefaultAsync(x => x.Email == email);
 
             if (acc == null)
-                throw new ExceptionHandler(MessageConstants.Auth.InvalidEmailOrOtp);
+                throw new Exception(MessageConstants.Auth.InvalidEmailOrOtp);
 
             if (acc.Status == AccountStatus.Suspended)
-                throw new ExceptionHandler(MessageConstants.Auth.AccountSuspended);
+                throw new Exception(MessageConstants.Auth.AccountSuspended);
 
             if (acc.Status == AccountStatus.Active)
                 return; //đã active thì done
 
             if (string.IsNullOrWhiteSpace(acc.EmailOtpHash) || acc.EmailOtpExpiresAt == null)
-                throw new ExceptionHandler(MessageConstants.Auth.OtpNotFound);
+                throw new Exception(MessageConstants.Auth.OtpNotFound);
 
             if (DateTimeOffset.UtcNow > acc.EmailOtpExpiresAt.Value)
-                throw new ExceptionHandler(MessageConstants.Auth.OtpExpired);
+                throw new Exception(MessageConstants.Auth.OtpExpired);
 
             if (acc.EmailOtpFailCount >= 5)
-                throw new ExceptionHandler(MessageConstants.Auth.TooManyFailedAttempts);
+                throw new Exception(MessageConstants.Auth.TooManyFailedAttempts);
 
             var secret = GetOtpSecret();
             var inputHash = OtpHelper.HashOtp(otp.Trim(), secret);
@@ -100,7 +99,7 @@ namespace FitupProject.BLL.Services
                 repo.Update(acc);
                 await _uow.SaveAsync();
 
-                throw new ExceptionHandler(MessageConstants.Auth.InvalidEmailOrOtp);
+                throw new Exception(MessageConstants.Auth.InvalidEmailOrOtp);
             }
 
             // Success
@@ -141,16 +140,16 @@ namespace FitupProject.BLL.Services
 
             var acc = await repo.Entities.FirstOrDefaultAsync(x => x.Email == email);
             if (acc == null)
-                throw new ExceptionHandler(MessageConstants.Auth.InvalidCredentials);
+                throw new Exception(MessageConstants.Auth.InvalidCredentials);
 
             if (acc.Status == AccountStatus.Suspended)
-                throw new ExceptionHandler(MessageConstants.Auth.AccountSuspended);
+                throw new Exception(MessageConstants.Auth.AccountSuspended);
 
             if (acc.Status != AccountStatus.Active)
-                throw new ExceptionHandler(MessageConstants.Auth.AccountNotActive);
+                throw new Exception(MessageConstants.Auth.AccountNotActive);
 
             if (!PasswordHasher.Verify(password, acc.PasswordHash))
-                throw new ExceptionHandler(MessageConstants.Auth.InvalidCredentials);
+                throw new Exception(MessageConstants.Auth.InvalidCredentials);
 
             return _jwt.Generate(acc);
         }
@@ -192,19 +191,19 @@ namespace FitupProject.BLL.Services
 
             // vẫn trả 400 message chung để bảo mật
             if (acc == null)
-                throw new ExceptionHandler(MessageConstants.Auth.InvalidResetOtp);
+                throw new Exception(MessageConstants.Auth.InvalidResetOtp);
 
             if (acc.Status == AccountStatus.Suspended)
-                throw new ExceptionHandler(MessageConstants.Auth.AccountSuspended);
+                throw new Exception(MessageConstants.Auth.AccountSuspended);
 
             if (string.IsNullOrWhiteSpace(acc.ResetPasswordOtpHash) || acc.ResetPasswordOtpExpiresAt == null)
-                throw new ExceptionHandler(MessageConstants.Auth.InvalidResetOtp);
+                throw new Exception(MessageConstants.Auth.InvalidResetOtp);
 
             if (DateTimeOffset.UtcNow > acc.ResetPasswordOtpExpiresAt.Value)
-                throw new ExceptionHandler(MessageConstants.Auth.ResetOtpExpired);
+                throw new Exception(MessageConstants.Auth.ResetOtpExpired);
 
             if (acc.ResetPasswordOtpFailCount >= 5)
-                throw new ExceptionHandler(MessageConstants.Auth.InvalidResetOtp);
+                throw new Exception(MessageConstants.Auth.InvalidResetOtp);
 
             var secret = GetOtpSecret();
             var inputHash = OtpHelper.HashOtp(otp, secret);
@@ -216,7 +215,7 @@ namespace FitupProject.BLL.Services
                 repo.Update(acc);
                 await _uow.SaveAsync();
 
-                throw new ExceptionHandler(MessageConstants.Auth.InvalidResetOtp);
+                throw new Exception(MessageConstants.Auth.InvalidResetOtp);
             }
 
             // OK -> đổi password
@@ -253,7 +252,7 @@ namespace FitupProject.BLL.Services
         {
             var secret = _cfg["Otp:Secret"];
             if (string.IsNullOrWhiteSpace(secret))
-                throw new ExceptionHandler("Missing config: Otp:Secret");
+                throw new Exception("Missing config: Otp:Secret");
             return secret;
         }
 
