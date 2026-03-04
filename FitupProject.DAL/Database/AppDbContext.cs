@@ -28,6 +28,8 @@ namespace FitupProject.DAL.Database
         public DbSet<ServicePayment> ServicePayments { get; set; }
         public DbSet<BookingPayment> BookingPayments { get; set; }
         public DbSet<PremiumPayment> PremiumPayments { get; set; }
+        public DbSet<PTCertificationFile> PTCertificationFiles { get; set; }
+        public DbSet<PTReviewLog> PTReviewLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -140,6 +142,9 @@ namespace FitupProject.DAL.Database
                 e.Property(x => x.PricePerHour).HasPrecision(18, 2);
                 e.Property(x => x.Rating).HasPrecision(18, 2);
                 e.Property(x => x.VerificationStatus).HasConversion<string>();
+                e.Property(x => x.CertificationsJson).HasDefaultValue("[]");
+                e.Property(x => x.SpecialtiesJson).HasDefaultValue("[]");
+                e.Property(x => x.LanguagesJson).HasDefaultValue("[]");
 
                 e.HasOne(x => x.Account)
                  .WithOne(a => a.PT) // nếu bạn CHƯA add a.PT thì đổi thành .WithMany() và bỏ unique index
@@ -306,6 +311,40 @@ namespace FitupProject.DAL.Database
 
                 e.HasIndex(x => x.PremiumId);
                 e.HasIndex(x => x.ServicePaymentId);
+            });
+
+            // --- PTCertificationFile ---
+            modelBuilder.Entity<PTCertificationFile>(e =>
+            {
+                e.HasKey(x => x.Id);
+
+                e.Property(x => x.FileName).IsRequired().HasMaxLength(255);
+                e.Property(x => x.FileUrl).IsRequired();
+
+                // Quan hệ PT 1 - n PTCertificationFile
+                e.HasOne(x => x.PT)
+                 .WithMany(p => p.CertificationFiles)
+                 .HasForeignKey(x => x.PTId)
+                 .OnDelete(DeleteBehavior.Cascade); // Xóa PT thì xóa luôn file chứng chỉ
+
+                e.HasIndex(x => x.PTId);
+            });
+
+            // --- PTReviewLog ---
+            modelBuilder.Entity<PTReviewLog>(e =>
+            {
+                e.HasKey(x => x.Id);
+
+                e.Property(x => x.Action).HasConversion<string>(); // Lưu Enum dưới dạng String
+                e.Property(x => x.Reason).HasMaxLength(1000);
+
+                // Quan hệ PT 1 - n PTReviewLog
+                e.HasOne(x => x.PT)
+                 .WithMany(p => p.ReviewLogs)
+                 .HasForeignKey(x => x.PTId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasIndex(x => x.PTId);
             });
         }
     }
