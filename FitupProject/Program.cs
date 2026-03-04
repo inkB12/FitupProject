@@ -120,6 +120,9 @@ builder.Services.AddScoped<IEmailSender, ResendEmailSender>();
 builder.Services.AddHostedService<PendingAccountCleanupService>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
+//---- DI Account
+builder.Services.AddScoped<IAccountService, AccountService>();
+
 //---- DI Workout flow
 builder.Services.AddScoped<IWorkoutCatalogService, WorkoutCatalogService>();
 builder.Services.AddScoped<IOnboardingService, OnboardingService>();
