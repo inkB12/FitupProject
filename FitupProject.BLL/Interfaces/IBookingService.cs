@@ -13,5 +13,7 @@ namespace FitupProject.BLL.Interfaces
         Task<IEnumerable<BookingResponse>> GetBookingsForUserAsync(string userId);
         Task CancelBookingAsync(string bookingId, string accountId);
         Task SendFeedbackAsync(SendFeedbackRequest request, string userId);
+        Task<bool> ForceCancelBookingAsync(string bookingId);
+        Task<IEnumerable<BookingResponse>> GetBookingsForAdminAsync(GetBookingPagingRequest request);
     }
 }
