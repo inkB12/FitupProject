@@ -115,6 +115,8 @@ builder.Services.AddHostedService<PaymentExpiryHostedService>();
 
 //---- DI Services
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserProfileService, UserProfileService>();
+
 builder.Services.AddScoped<IAdminAccountService, AdminAccountService>();
 //builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<IEmailSender, ResendEmailSender>();
