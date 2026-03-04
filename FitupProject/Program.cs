@@ -132,7 +132,8 @@ builder.Services.AddScoped<IBookingService, BookingService>();
 builder.Services.Configure<VnPayOptions>(builder.Configuration.GetSection("VnPay"));
 builder.Services.AddScoped<ITopUpService, TopUpService>();
 builder.Services.AddScoped<IConversionRateService, ConversionRateService>();
-
+// ---- DI DashBoard
+builder.Services.AddScoped<IDashBoardService, DashBoardService>();
 
 //Middleware
 //builder.Services.AddTransient<ExceptionMiddleware>();
