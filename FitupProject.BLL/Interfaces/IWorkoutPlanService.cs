@@ -13,5 +13,7 @@ namespace FitupProject.BLL.Interfaces
         Task<WorkoutPlanOverviewDto> GetPlanOverviewAsync(string planId, string accountId);
         Task<IEnumerable<WorkoutDayDto>> GetWeekDaysAsync(string planId, int weekNumber, string accountId);
         Task<WorkoutSessionDetailDto> GetDayDetailAsync(string planId, int weekNumber, int dayNumber, string accountId);
+
+        Task UpdateExerciseStatusAsync(string workoutSessionExerciseId, bool isDone, string accountId);
     }
 }

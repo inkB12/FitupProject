@@ -1,7 +1,8 @@
-﻿using System.Security.Claims;
+﻿using FitupProject.BLL.DTOs.WorkoutPlans;
 using FitupProject.BLL.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace FitupProject.Controllers
 {
@@ -121,6 +122,25 @@ namespace FitupProject.Controllers
 
             await _svc.DeletePlanAsync(id, accountId);
             return Ok(new { message = "Deleted successfully." });
+        }
+
+        // update done/undone 1 exercise
+        // PATCH /api/workout-plans/exercises/{exerciseId}/status
+        [HttpPatch("exercises/{exerciseId}/status")]
+        public async Task<IActionResult> UpdateExerciseStatus(
+            string exerciseId,
+            [FromBody] UpdateWorkoutSessionExerciseStatusRequest req)
+        {
+            var accountId = GetAccountId();
+            if (string.IsNullOrWhiteSpace(accountId))
+                return Unauthorized(new { message = "Unauthorized." });
+
+            await _svc.UpdateExerciseStatusAsync(exerciseId, req.IsDone, accountId);
+
+            return Ok(new
+            {
+                message = "Exercise status updated successfully."
+            });
         }
     }
 }

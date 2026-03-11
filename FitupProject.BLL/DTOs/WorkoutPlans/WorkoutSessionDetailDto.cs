@@ -14,12 +14,14 @@ namespace FitupProject.BLL.DTOs.WorkoutPlans
 
     public class WorkoutSessionExerciseDto
     {
+        public string? Id { get; set; }
         public int Order { get; set; }
         public int? Sets { get; set; }
         public string? Reps { get; set; }
         public int? DurationSeconds { get; set; }
         public int? RestSeconds { get; set; }
         public string? Note { get; set; }
+        public bool IsDone { get; set; }
 
         public WorkoutMiniDto Workout { get; set; } = new();
     }

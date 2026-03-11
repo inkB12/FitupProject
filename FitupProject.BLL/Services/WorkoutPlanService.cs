@@ -522,9 +522,11 @@ namespace FitupProject.BLL.Services
                     .OrderBy(e => e.Order)
                     .Select(e => new WorkoutSessionExerciseDto
                     {
+                        Id= e.Id,
                         Order = e.Order,
                         Sets = e.Sets,
                         Reps = e.Reps,
+                        IsDone = e.IsDone,                        
                         DurationSeconds = e.DurationSeconds,
                         RestSeconds = e.RestSeconds,
                         Note = e.Note,
@@ -608,6 +610,151 @@ namespace FitupProject.BLL.Services
             var setsDelta = Math.Min(2, (week - 1) / 2);
             var repsHint = week >= 3 ? "+2 reps if easy" : "";
             return (setsDelta, repsHint, 1.0);
+        }
+
+        public async Task UpdateExerciseStatusAsync(string exerciseId, bool isDone, string accountId)
+        {
+            if (string.IsNullOrWhiteSpace(exerciseId))
+                throw new Exception("ExerciseId is required.");
+
+            var exRepo = _uow.GetRepository<WorkoutSessionExercise>();
+            var sessionRepo = _uow.GetRepository<WorkoutSession>();
+            var scheduleRepo = _uow.GetRepository<WorkoutSchedule>();
+            var planRepo = _uow.GetRepository<WorkoutPlan>();
+
+            var exercise = await exRepo.Entities
+                .FirstOrDefaultAsync(e => e.Id == exerciseId);
+
+            if (exercise == null)
+                throw new Exception("WorkoutSessionExercise not found.");
+
+            var session = await sessionRepo.Entities
+                .FirstOrDefaultAsync(s => s.Id == exercise.WorkoutSessionId);
+
+            if (session == null)
+                throw new Exception("WorkoutSession not found.");
+
+            var schedule = await scheduleRepo.Entities
+                .FirstOrDefaultAsync(s => s.Id == session.WorkoutScheduleId);
+
+            if (schedule == null)
+                throw new Exception("WorkoutSchedule not found.");
+
+            var plan = await planRepo.Entities
+                .FirstOrDefaultAsync(p => p.Id == schedule.WorkoutPlanId && p.AccountId == accountId);
+
+            if (plan == null)
+                throw new Exception("WorkoutPlan not found.");
+
+            exercise.IsDone = isDone;
+            exRepo.Update(exercise);
+
+            // recalc session progress
+            var sessionExercises = await exRepo.Entities
+                .Where(e => e.WorkoutSessionId == session.Id)
+                .ToListAsync();
+
+            session.Progress = CalculatePercent(
+                sessionExercises.Count,
+                sessionExercises.Count(e => e.Id == exercise.Id ? isDone : e.IsDone)
+            );
+            sessionRepo.Update(session);
+
+            // recalc schedule progress
+            var scheduleSessions = await sessionRepo.Entities
+                .Where(s => s.WorkoutScheduleId == schedule.Id)
+                .ToListAsync();
+
+            schedule.Progress = CalculateAveragePercent(
+                scheduleSessions.Select(s => s.Id == session.Id ? session.Progress : s.Progress)
+            );
+            scheduleRepo.Update(schedule);
+
+            // recalc plan progress
+            var planSchedules = await scheduleRepo.Entities
+                .Where(s => s.WorkoutPlanId == plan.Id)
+                .ToListAsync();
+
+            plan.Progress = CalculateAveragePercent(
+                planSchedules.Select(s => s.Id == schedule.Id ? schedule.Progress : s.Progress)
+            );
+            planRepo.Update(plan);
+
+            await _uow.SaveAsync();
+        }
+
+        //private async Task RecalculateProgressAsync(string workoutSessionId, string workoutScheduleId, string workoutPlanId)
+        //{
+        //    var exRepo = _uow.GetRepository<WorkoutSessionExercise>();
+        //    var sessionRepo = _uow.GetRepository<WorkoutSession>();
+        //    var scheduleRepo = _uow.GetRepository<WorkoutSchedule>();
+        //    var planRepo = _uow.GetRepository<WorkoutPlan>();
+
+        //    // 1. Tính lại progress của WorkoutSession
+        //    var sessionExercises = await exRepo.Entities
+        //        .Where(e => e.WorkoutSessionId == workoutSessionId)
+        //        .ToListAsync();
+
+        //    var session = await sessionRepo.Entities
+        //        .FirstOrDefaultAsync(s => s.Id == workoutSessionId);
+
+        //    if (session == null)
+        //        throw new Exception("WorkoutSession not found.");
+
+        //    session.Progress = CalculatePercent(
+        //        totalCount: sessionExercises.Count,
+        //        doneCount: sessionExercises.Count(e => e.IsDone)
+        //    );
+        //    sessionRepo.Update(session);
+
+        //    await _uow.SaveAsync();
+
+        //    // 2. Tính lại progress của WorkoutSchedule
+        //    var scheduleSessions = await sessionRepo.Entities
+        //        .Where(s => s.WorkoutScheduleId == workoutScheduleId)
+        //        .ToListAsync();
+
+        //    var schedule = await scheduleRepo.Entities
+        //        .FirstOrDefaultAsync(s => s.Id == workoutScheduleId);
+
+        //    if (schedule == null)
+        //        throw new Exception("WorkoutSchedule not found.");
+
+        //    schedule.Progress = CalculateAveragePercent(scheduleSessions.Select(s => s.Progress));
+        //    scheduleRepo.Update(schedule);
+
+        //    await _uow.SaveAsync();
+
+        //    // 3. Tính lại progress của WorkoutPlan
+        //    var planSchedules = await scheduleRepo.Entities
+        //        .Where(s => s.WorkoutPlanId == workoutPlanId)
+        //        .ToListAsync();
+
+        //    var plan = await planRepo.Entities
+        //        .FirstOrDefaultAsync(p => p.Id == workoutPlanId);
+
+        //    if (plan == null)
+        //        throw new Exception("WorkoutPlan not found.");
+
+        //    plan.Progress = CalculateAveragePercent(planSchedules.Select(s => s.Progress));
+        //    planRepo.Update(plan);
+
+        //    await _uow.SaveAsync();
+        //}
+
+        private static int CalculatePercent(int totalCount, int doneCount)
+        {
+            if (totalCount <= 0) return 0;
+
+            return (int)Math.Round((double)doneCount * 100 / totalCount, MidpointRounding.AwayFromZero);
+        }
+
+        private static int CalculateAveragePercent(IEnumerable<int> values)
+        {
+            var list = values.ToList();
+            if (list.Count == 0) return 0;
+
+            return (int)Math.Round(list.Average(), MidpointRounding.AwayFromZero);
         }
     }
 }
