@@ -25,6 +25,8 @@ namespace FitupProject.BLL.Services
             var sfbRepo = _uow.GetRepository<SlotForBooking>();
             var bookingRepo = _uow.GetRepository<Booking>();
             var accountRepo = _uow.GetRepository<Account>();
+            var servicePaymentRepo = _uow.GetRepository<ServicePayment>();
+            var bookingPaymentRepo = _uow.GetRepository<BookingPayment>();
 
             var sfb = await sfbRepo.Entities
                 .Include(x => x.Slot)
@@ -42,7 +44,7 @@ namespace FitupProject.BLL.Services
                 throw new Exception($"Số dư không đủ. Bạn cần thêm {sfb.Price - account.PointAmount} điểm để đặt lịch.");
             }
 
-            account.PointAmount -= sfb.Price; 
+            account.PointAmount -= sfb.Price;
 
             var booking = new Booking
             {
@@ -51,12 +53,31 @@ namespace FitupProject.BLL.Services
                 AccountId = userId,
                 Note = request.Note,
                 Total = sfb.Price,
-                Status = BookingStatus.Confirmed, 
+                Status = BookingStatus.Confirmed,
             };
 
             sfb.Status = SlotForBookingStatus.Booked;
 
+            var servicePayment = new ServicePayment
+            {
+                Id = Guid.NewGuid().ToString(),
+                Amount = sfb.Price,
+                ServiceType = ServiceType.BookingPT,
+                PaymentDate = DateTimeOffset.UtcNow,
+                Status = PaymentStatus.Success,
+            };
+
+            var bookingPayment = new BookingPayment
+            {
+                Id = Guid.NewGuid().ToString(),
+                BookingId = booking.Id,
+                ServicePaymentId = servicePayment.Id,
+                Price = sfb.Price,
+            };
+
             await bookingRepo.AddAsync(booking);
+            await servicePaymentRepo.AddAsync(servicePayment);
+            await bookingPaymentRepo.AddAsync(bookingPayment);
             await _uow.SaveAsync();
 
             return booking.Id;
@@ -67,10 +88,11 @@ namespace FitupProject.BLL.Services
             var bookingRepo = _uow.GetRepository<Booking>();
             var sfbRepo = _uow.GetRepository<SlotForBooking>();
             var accountRepo = _uow.GetRepository<Account>();
+            var bookingPaymentRepo = _uow.GetRepository<BookingPayment>();
+            var servicePaymentRepo = _uow.GetRepository<ServicePayment>();
 
             var booking = await bookingRepo.Entities
                 .Include(b => b.SlotForBooking)
-                 .Include(b => b.SlotForBooking)
                     .ThenInclude(sfb => sfb.Slot)
                 .FirstOrDefaultAsync(b => b.Id == bookingId && b.AccountId == accountId);
 
@@ -93,11 +115,9 @@ namespace FitupProject.BLL.Services
 
             var sfb = await sfbRepo.Entities.FirstOrDefaultAsync(x => x.Id == booking.SlotForBookingId);
             if (sfb != null)
-            {
                 sfb.Status = SlotForBookingStatus.Available;
-            }
-            var refundPoint = booking.Total;
 
+            var refundPoint = booking.Total;
             if (refundPoint > 0)
             {
                 var account = await accountRepo.Entities
@@ -107,10 +127,18 @@ namespace FitupProject.BLL.Services
                     throw new KeyNotFoundException("Account không tồn tại.");
 
                 account.PointAmount += refundPoint;
-               
                 await accountRepo.UpdateAsync(account);
             }
-           
+
+            var bookingPayment = await bookingPaymentRepo.Entities
+                .FirstOrDefaultAsync(bp => bp.BookingId == bookingId);
+            if (bookingPayment != null)
+            {
+                var servicePayment = await servicePaymentRepo.GetByIdAsync(bookingPayment.ServicePaymentId);
+                if (servicePayment != null)
+                    servicePayment.Status = PaymentStatus.Cancelled;
+            }
+
             await _uow.SaveAsync();
         }
 
@@ -120,6 +148,7 @@ namespace FitupProject.BLL.Services
             var bookingRepo = _uow.GetRepository<Booking>();
             var accountRepo = _uow.GetRepository<Account>();
             var bookingPaymentRepo = _uow.GetRepository<BookingPayment>();
+            var servicePaymentRepo = _uow.GetRepository<ServicePayment>();
 
             var booking = await bookingRepo.Entities
                 .Include(b => b.Account)
@@ -128,12 +157,11 @@ namespace FitupProject.BLL.Services
 
             if (booking == null)
                 throw new KeyNotFoundException("Booking không tồn tại.");
-           
+
             if (booking.Status != BookingStatus.Confirmed)
                 throw new InvalidOperationException("Chỉ có thể Force Cancel booking ở trạng thái Confirmed.");
 
             var refundPoint = booking.Total;
-
             if (refundPoint > 0)
             {
                 var account = await accountRepo.Entities
@@ -149,7 +177,16 @@ namespace FitupProject.BLL.Services
             booking.Status = BookingStatus.Cancelled;
             if (booking.SlotForBooking != null)
                 booking.SlotForBooking.Status = SlotForBookingStatus.Available;
-           
+
+            var bookingPayment = await bookingPaymentRepo.Entities
+                .FirstOrDefaultAsync(bp => bp.BookingId == bookingId);
+            if (bookingPayment != null)
+            {
+                var servicePayment = await servicePaymentRepo.GetByIdAsync(bookingPayment.ServicePaymentId);
+                if (servicePayment != null)
+                    servicePayment.Status = PaymentStatus.Cancelled;
+            }
+
             await _uow.SaveAsync();
 
             return true;
