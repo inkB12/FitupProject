@@ -184,6 +184,11 @@ builder.Services.AddScoped<ITopUpService, TopUpService>();
 builder.Services.AddScoped<IConversionRateService, ConversionRateService>();
 // ---- DI DashBoard
 builder.Services.AddScoped<IDashBoardService, DashBoardService>();
+//----- DI Premium
+builder.Services.AddScoped<IPremiumService, PremiumService>();
+builder.Services.AddScoped<IAdminPremiumService, AdminPremiumService>();
+//---- DI ServicePayment
+builder.Services.AddScoped<IServicePaymentService, ServicePaymentService>();
 
 //Middleware
 //builder.Services.AddTransient<ExceptionMiddleware>();
