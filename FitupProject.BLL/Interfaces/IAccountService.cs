@@ -1,4 +1,5 @@
 using FitupProject.BLL.DTOs.Accounts;
+using FitupProject.BLL.DTOs.Me;
 using FitupProject.Core.Entities;
 
 namespace FitupProject.BLL.Interfaces
@@ -10,5 +11,6 @@ namespace FitupProject.BLL.Interfaces
         Task<string> CreateAccountAsync(AccountCreateRequest req);
         Task UpdateAccountAsync(string id, AccountUpdateRequest req);
         Task DeleteAccountAsync(string id);
+        Task<MeResponse> GetMeAsync(string accountId);
     }
 }

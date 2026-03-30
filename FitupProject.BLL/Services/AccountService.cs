@@ -1,4 +1,5 @@
 ﻿using FitupProject.BLL.DTOs.Accounts;
+using FitupProject.BLL.DTOs.Me;
 using FitupProject.BLL.Interfaces;
 using FitupProject.Core.Entities;
 using FitupProject.DAL.Interfaces;
@@ -77,6 +78,36 @@ namespace FitupProject.BLL.Services
             var repo = _uow.GetRepository<Account>();
             return await repo.Entities.OrderByDescending(x => x.CreatedAt).ToListAsync();
 
+        }
+
+        public async Task<MeResponse> GetMeAsync(string accountId)
+        {
+            var repo = _uow.GetRepository<Account>();
+            var acc = await repo.Entities
+                .Include(x => x.UserProfile)
+                .FirstOrDefaultAsync(x => x.Id == accountId);
+
+            if (acc == null)
+                throw new Exception("Account not found.");
+
+            return new MeResponse
+            {
+                Id = acc.Id,
+                Email = acc.Email,
+                Phone = acc.Phone,
+                Role = acc.Role.ToString(),
+                Status = acc.Status.ToString(),
+                PointAmount = acc.PointAmount,
+                Profile = acc.UserProfile == null ? null : new MeProfileResponse
+                {
+                    FullName = acc.UserProfile.FullName,
+                    Dob = acc.UserProfile.Dob,
+                    Gender = acc.UserProfile.Gender,
+                    Address = acc.UserProfile.Address,
+                    Height = acc.UserProfile.Height,
+                    Weight = acc.UserProfile.Weight
+                }
+            };
         }
 
         public async Task UpdateAccountAsync(string id, AccountUpdateRequest req)
