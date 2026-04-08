@@ -5,7 +5,7 @@ namespace FitupProject.Core.Entities
 {
     public class ConversionRate : BaseEntity
     {
-        // ví dụ: 1 VND -> bao nhiêu point, hoặc 1 point -> bao nhiêu VND tuỳ bạn dùng
+        public ConversionRateType Type { get; set; }
         public decimal Rate { get; set; }
 
         public ConversionRateStatus Status { get; set; } = ConversionRateStatus.Active;

@@ -220,6 +220,7 @@ namespace FitupProject.DAL.Database
             {
                 e.Property(x => x.Rate).HasPrecision(18, 6);
                 e.Property(x => x.Status).HasConversion<string>();
+                e.HasIndex(x => x.Type).IsUnique();
             });
 
             // Payment (top-up tiền thật)
@@ -228,7 +229,6 @@ namespace FitupProject.DAL.Database
                 e.Property(x => x.Amount).HasPrecision(18, 2);
                 e.Property(x => x.Status).HasConversion<string>();
 
-                e.HasIndex(x => x.VnpTxnRef).IsUnique();
 
                 e.HasOne(x => x.Account)
                  .WithMany(a => a.Payments)

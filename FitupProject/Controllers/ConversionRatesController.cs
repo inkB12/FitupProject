@@ -1,4 +1,4 @@
-﻿using FitupProject.BLL.DTOs.VNPay;
+﻿using FitupProject.BLL.DTOs.Payments;
 using FitupProject.BLL.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

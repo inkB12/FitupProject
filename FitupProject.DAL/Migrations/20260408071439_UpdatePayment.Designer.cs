@@ -3,6 +3,7 @@ using System;
 using FitupProject.DAL.Database;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FitupProject.DAL.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260408071439_UpdatePayment")]
+    partial class UpdatePayment
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -263,9 +266,6 @@ namespace FitupProject.DAL.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int>("Type")
-                        .HasColumnType("integer");
-
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -273,9 +273,6 @@ namespace FitupProject.DAL.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("Type")
-                        .IsUnique();
 
                     b.ToTable("ConversionRates");
                 });
@@ -548,7 +545,16 @@ namespace FitupProject.DAL.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
-                    b.Property<string>("CheckoutUrl")
+                    b.Property<string>("BankAccountName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("BankAccountNo")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("BankCode")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTimeOffset?>("ConfirmedAt")
@@ -579,9 +585,6 @@ namespace FitupProject.DAL.Migrations
                     b.Property<int>("Method")
                         .HasColumnType("integer");
 
-                    b.Property<long?>("OrderCode")
-                        .HasColumnType("bigint");
-
                     b.Property<DateTimeOffset?>("PaidAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -589,6 +592,10 @@ namespace FitupProject.DAL.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TransferContent")
                         .IsRequired()
                         .HasColumnType("text");
 

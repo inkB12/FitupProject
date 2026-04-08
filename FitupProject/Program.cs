@@ -1,7 +1,9 @@
+using System.Text;
+using System.Text.Json;
 using FitupProject.BackgroundJobs;
 using FitupProject.BLL.Commons;
+using FitupProject.BLL.Commons.PayOS;
 using FitupProject.BLL.Commons.Securities;
-using FitupProject.BLL.Commons.VNPay;
 using FitupProject.BLL.Interfaces;
 using FitupProject.BLL.Services;
 using FitupProject.DAL.Database;
@@ -14,8 +16,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using System.Text;
-using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -178,8 +178,10 @@ builder.Services.AddScoped<IWorkoutPlanService, WorkoutPlanService>();
 builder.Services.AddScoped<ISlotService, SlotService>();
 // ---- DI Booking
 builder.Services.AddScoped<IBookingService, BookingService>();
-//---- DI VNPAY + Conversion
-builder.Services.Configure<VnPayOptions>(builder.Configuration.GetSection("VnPay"));
+////---- DI VNPAY + Conversion
+//builder.Services.Configure<VnPayOptions>(builder.Configuration.GetSection("VnPay"));
+builder.Services.Configure<PayOSOptions>(
+    builder.Configuration.GetSection("PayOS"));
 builder.Services.AddScoped<ITopUpService, TopUpService>();
 builder.Services.AddScoped<IConversionRateService, ConversionRateService>();
 // ---- DI DashBoard
@@ -189,6 +191,7 @@ builder.Services.AddScoped<IPremiumService, PremiumService>();
 builder.Services.AddScoped<IAdminPremiumService, AdminPremiumService>();
 //---- DI ServicePayment
 builder.Services.AddScoped<IServicePaymentService, ServicePaymentService>();
+
 
 //Middleware
 //builder.Services.AddTransient<ExceptionMiddleware>();

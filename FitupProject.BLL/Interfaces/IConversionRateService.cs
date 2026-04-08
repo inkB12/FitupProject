@@ -1,4 +1,4 @@
-﻿using FitupProject.BLL.DTOs.VNPay;
+﻿using FitupProject.BLL.DTOs.Payments;
 using FitupProject.Core.Entities;
 
 namespace FitupProject.BLL.Interfaces

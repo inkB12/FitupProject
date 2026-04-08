@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using FitupProject.Core.Commons;
+﻿using FitupProject.Core.Commons;
 using FitupProject.Core.Commons.Enums;
 
 namespace FitupProject.Core.Entities
@@ -13,18 +8,20 @@ namespace FitupProject.Core.Entities
         public string AccountId { get; set; } = string.Empty;
         public string ConversionRateId { get; set; } = string.Empty;
 
-        public decimal Amount { get; set; } // VND
+        public decimal Amount { get; set; }
         public PaymentStatus Status { get; set; } = PaymentStatus.Pending;
+        public PaymentMethod Method { get; set; } = PaymentMethod.PayOS;
 
-        // VNPAY optional logs
-        public string? VnpTxnRef { get; set; }          // vnp_TxnRef
-        public string? VnpTransactionNo { get; set; }   // vnp_TransactionNo
-        public string? VnpResponseCode { get; set; }    // vnp_ResponseCode
-        public string? VnpTransactionStatus { get; set; } // vnp_TransactionStatus
-        public string? VnpBankCode { get; set; }
+        // payOS
+        public long? OrderCode { get; set; }
+        public string? CheckoutUrl { get; set; }
+
         public DateTimeOffset? PaidAt { get; set; }
         public DateTimeOffset? ExpiredAt { get; set; }
+        public DateTimeOffset? ConfirmedAt { get; set; }
 
+        public string? ConfirmedBy { get; set; }
+        public string? ProviderTransactionId { get; set; }
 
         public Account? Account { get; set; }
         public ConversionRate? ConversionRate { get; set; }
