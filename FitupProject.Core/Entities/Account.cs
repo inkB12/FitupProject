@@ -33,5 +33,6 @@ namespace FitupProject.Core.Entities
         public ICollection<Booking>? Bookings { get; set; }
         public ICollection<Payment>? Payments { get; set; }
         public ICollection<Premium>? Premiums { get; set; }
+        public ICollection<AiConversation>? AiConversations { get; set; }
     }
 }

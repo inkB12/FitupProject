@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using FitupProject.BackgroundJobs;
 using FitupProject.BLL.Commons;
+using FitupProject.BLL.Commons.AI;
 using FitupProject.BLL.Commons.PayOS;
 using FitupProject.BLL.Commons.Securities;
 using FitupProject.BLL.Interfaces;
@@ -178,8 +179,6 @@ builder.Services.AddScoped<IWorkoutPlanService, WorkoutPlanService>();
 builder.Services.AddScoped<ISlotService, SlotService>();
 // ---- DI Booking
 builder.Services.AddScoped<IBookingService, BookingService>();
-////---- DI VNPAY + Conversion
-//builder.Services.Configure<VnPayOptions>(builder.Configuration.GetSection("VnPay"));
 builder.Services.Configure<PayOSOptions>(
     builder.Configuration.GetSection("PayOS"));
 builder.Services.AddScoped<ITopUpService, TopUpService>();
@@ -191,6 +190,11 @@ builder.Services.AddScoped<IPremiumService, PremiumService>();
 builder.Services.AddScoped<IAdminPremiumService, AdminPremiumService>();
 //---- DI ServicePayment
 builder.Services.AddScoped<IServicePaymentService, ServicePaymentService>();
+//---- DI ChatService
+builder.Services.Configure<GeminiOptions>(
+    builder.Configuration.GetSection("Gemini"));
+builder.Services.AddScoped<IAIChatContextBuilder, AIChatContextBuilder>();
+builder.Services.AddScoped<IAIChatService, AIChatService>();
 
 
 //Middleware

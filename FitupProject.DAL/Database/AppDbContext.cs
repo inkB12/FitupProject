@@ -30,6 +30,8 @@ namespace FitupProject.DAL.Database
         public DbSet<PremiumPayment> PremiumPayments { get; set; }
         public DbSet<PTCertificationFile> PTCertificationFiles { get; set; }
         public DbSet<PTReviewLog> PTReviewLogs { get; set; }
+        public DbSet<AiConversation> AiConversations { get; set; }
+        public DbSet<AiMessage> AiMessages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -345,6 +347,38 @@ namespace FitupProject.DAL.Database
                  .OnDelete(DeleteBehavior.Cascade);
 
                 e.HasIndex(x => x.PTId);
+            });
+
+            // AI Conversation
+            modelBuilder.Entity<AiConversation>(e =>
+            {
+                e.Property(x => x.Title).IsRequired().HasMaxLength(200);
+                e.Property(x => x.LastOpenAIResponseId).HasMaxLength(100);
+
+                e.HasOne(x => x.Account)
+                 .WithMany(a => a.AiConversations)
+                 .HasForeignKey(x => x.AccountId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(x => x.AccountId);
+                e.HasIndex(x => new { x.AccountId, x.LastMessageAt });
+            });
+
+            // AI Message
+            modelBuilder.Entity<AiMessage>(e =>
+            {
+                e.Property(x => x.Role).HasConversion<string>();
+                e.Property(x => x.Content).IsRequired();
+
+                e.Property(x => x.OpenAIResponseId).HasMaxLength(100);
+
+                e.HasOne(x => x.Conversation)
+                 .WithMany(c => c.Messages)
+                 .HasForeignKey(x => x.ConversationId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasIndex(x => x.ConversationId);
+                e.HasIndex(x => new { x.ConversationId, x.CreatedAt });
             });
         }
     }
