@@ -142,7 +142,38 @@ namespace FitupProject.BLL.Services
             await _uow.SaveAsync();
         }
 
-    
+        public async Task<bool> CompleteBookingAsync(string bookingId, string ptAccountId)
+        {
+            var bookingRepo = _uow.GetRepository<Booking>();
+
+            // Lấy thông tin booking kèm theo thông tin PT để kiểm tra quyền sở hữu
+            var booking = await bookingRepo.Entities
+                .Include(b => b.SlotForBooking)
+                    .ThenInclude(sfb => sfb.Slot)
+                        .ThenInclude(s => s.PT)
+                .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+            if (booking == null)
+                throw new KeyNotFoundException("Không tìm thấy thông tin đặt lịch.");
+
+            // Kiểm tra xem người đang đăng nhập có phải là PT của slot này không
+            if (booking.SlotForBooking?.Slot?.PT?.AccountId != ptAccountId)
+                throw new UnauthorizedAccessException("Bạn không có quyền xác nhận hoàn thành cho lịch tập này.");
+
+            if (booking.Status != BookingStatus.Confirmed)
+                throw new InvalidOperationException("Chỉ có thể hoàn thành những lịch tập ở trạng thái Confirmed.");
+
+            // Cập nhật trạng thái thành Completed
+            booking.Status = BookingStatus.Completed;
+
+            // Nếu bạn muốn giải phóng Slot ngay khi tập xong (tùy logic hệ thống)
+            // if (booking.SlotForBooking != null)
+            //    booking.SlotForBooking.Status = SlotForBookingStatus.Available;
+
+            await _uow.SaveAsync();
+            return true;
+        }
+
         public async Task<bool> ForceCancelBookingAsync(string bookingId)
         {
             var bookingRepo = _uow.GetRepository<Booking>();
