@@ -122,5 +122,38 @@ namespace FitupProject.Controllers
             var result = await _bookingService.ForceCancelBookingAsync(bookingId);
             return Ok(new { status = 200, msg = "Force Cancel thành công.", data = result });
         }
+
+        [HttpGet("pt/my-bookings")]
+        [Authorize(Roles = "PT")] // Chỉ cho phép PT truy cập
+        public async Task<IActionResult> GetPtBookings()
+        {
+            // Lấy ID của PT từ Token của người đang đăng nhập
+            var ptId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(ptId)) return Unauthorized();
+
+            var result = await _bookingService.GetBookingsForPTAsync(ptId);
+            return Ok(result);
+        }
+
+        [HttpPost("{bookingId}/complete")]
+        [Authorize(Roles = "PT")]
+        public async Task<IActionResult> CompleteBooking(string bookingId)
+        {
+            // Lấy AccountId từ Token của PT
+            var ptAccountId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(ptAccountId)) return Unauthorized();
+
+            try
+            {
+                await _bookingService.CompleteBookingAsync(bookingId, ptAccountId);
+                return Ok(new { message = "Xác nhận buổi tập hoàn thành thành công." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }

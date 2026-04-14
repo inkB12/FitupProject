@@ -142,7 +142,38 @@ namespace FitupProject.BLL.Services
             await _uow.SaveAsync();
         }
 
-    
+        public async Task<bool> CompleteBookingAsync(string bookingId, string ptAccountId)
+        {
+            var bookingRepo = _uow.GetRepository<Booking>();
+
+            // Lấy thông tin booking kèm theo thông tin PT để kiểm tra quyền sở hữu
+            var booking = await bookingRepo.Entities
+                .Include(b => b.SlotForBooking)
+                    .ThenInclude(sfb => sfb.Slot)
+                        .ThenInclude(s => s.PT)
+                .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+            if (booking == null)
+                throw new KeyNotFoundException("Không tìm thấy thông tin đặt lịch.");
+
+            // Kiểm tra xem người đang đăng nhập có phải là PT của slot này không
+            if (booking.SlotForBooking?.Slot?.PT?.AccountId != ptAccountId)
+                throw new UnauthorizedAccessException("Bạn không có quyền xác nhận hoàn thành cho lịch tập này.");
+
+            if (booking.Status != BookingStatus.Confirmed)
+                throw new InvalidOperationException("Chỉ có thể hoàn thành những lịch tập ở trạng thái Confirmed.");
+
+            // Cập nhật trạng thái thành Completed
+            booking.Status = BookingStatus.Completed;
+
+            // Nếu bạn muốn giải phóng Slot ngay khi tập xong (tùy logic hệ thống)
+            // if (booking.SlotForBooking != null)
+            //    booking.SlotForBooking.Status = SlotForBookingStatus.Available;
+
+            await _uow.SaveAsync();
+            return true;
+        }
+
         public async Task<bool> ForceCancelBookingAsync(string bookingId)
         {
             var bookingRepo = _uow.GetRepository<Booking>();
@@ -227,8 +258,36 @@ namespace FitupProject.BLL.Services
                 }).ToListAsync();
             return result;
         }
-        
 
+        public async Task<IEnumerable<BookingResponse>> GetBookingsForPTAsync(string accountId) // Đổi tên tham số cho rõ nghĩa
+        {
+            var bookingRepo = _uow.GetRepository<Booking>();
+
+            var bookings = await bookingRepo.Entities
+                .Include(b => b.Account)
+                    .ThenInclude(a => a.UserProfile) // Quan trọng: Phải include UserProfile để lấy FullName
+                .Include(b => b.SlotForBooking)
+                    .ThenInclude(sfb => sfb.Slot)
+                        .ThenInclude(s => s.PT) // Include thêm bảng PT để lọc theo AccountId
+                .Where(b => b.SlotForBooking.Slot.PT.AccountId == accountId // Lọc theo AccountId của PT
+                         && b.Status != BookingStatus.Cancelled)
+                .OrderByDescending(b => b.SlotForBooking.BookingDate)
+                .ToListAsync();
+
+            return bookings.Select(b => new BookingResponse
+            {
+                Id = b.Id,
+                SlotForBookingId = b.SlotForBookingId,
+                BookingDate = b.SlotForBooking.BookingDate,
+                StartTime = b.SlotForBooking.Slot.SlotStart,
+                EndTime = b.SlotForBooking.Slot.SlotEnd,
+                Total = b.Total,
+                Status = b.Status.ToString(),
+                Note = b.Note,
+                // Dùng null-conditional (?.) để tránh lỗi NullReferenceException nếu UserProfile chưa có
+                PTName = b.Account?.UserProfile?.FullName ?? "Học viên chưa cập nhật tên"
+            });
+        }
         public async Task<IEnumerable<BookingResponse>> GetBookingsForUserAsync(string accountId)
         {
             var bookingRepo = _uow.GetRepository<Booking>();
